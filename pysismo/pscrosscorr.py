@@ -7,11 +7,11 @@ dispersion curves.
 
 import pserrors, psstation, psutils, pstomo
 import obspy.signal
-import obspy.xseed
+import obspy.io.xseed
 import obspy.signal.cross_correlation
 import obspy.signal.filter
 from obspy.core import AttribDict, read, UTCDateTime, Trace
-from obspy.signal.invsim import cosTaper
+from obspy.signal.invsim import cosine_taper
 import numpy as np
 from numpy.fft import rfft, irfft, fft, ifft, fftfreq
 from scipy import integrate
@@ -2625,7 +2625,7 @@ def FTAN(x, dt, periods, alpha, phase_corr=None):
         Xa[mask] = np.abs(Xa[mask]) * np.exp(-1j * phi)
 
         # tapering
-        taper = cosTaper(npts=mask.sum(), p=0.05)
+        taper = cosine_taper(npts=mask.sum(), p=0.05)
         Xa[mask] *= taper
         Xa[~mask] = 0.0
 
