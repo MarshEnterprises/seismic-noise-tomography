@@ -500,7 +500,7 @@ class CrossCorrelation:
         vkwargs = {
             'fontsize': 8,
             'horizontalalignment': 'center',
-            'bbox': dict(color='k', facecolor='white')}
+            'bbox': {'edgecolor': 'black', 'facecolor': 'white', 'alpha': 0.5}}
         if vmin:
             ylim = plt.ylim()
             plt.plot(2 * [xcout.dist() / vmin], ylim, color='grey')
@@ -531,7 +531,7 @@ class CrossCorrelation:
         freqarray = np.arange(nfreq) * sampling_rate / npts
         amplarray = np.abs(rfft(xcdata))
         plt.plot(freqarray, amplarray)
-        plt.xlim((0.0, 0.2))
+        plt.xlim((0.0, 10))
 
         plt.show()
 
@@ -614,7 +614,7 @@ class CrossCorrelation:
             xy = (t, ylim[0] + 0.1 * (ylim[1] - ylim[0]))
             axlist[0].annotate(s='{} km/s'.format(v), xy=xy, xytext=xy,
                                horizontalalignment=align, fontsize=8,
-                               bbox={'color': 'k', 'facecolor': 'white'})
+                               bbox={'edgecolor': 'black', 'facecolor': 'white', 'alpha': 0.5})
 
         # noise window
         axlist[0].fill_between(x=tnoise, y1=[ylim[1], ylim[1]],
@@ -629,7 +629,7 @@ class CrossCorrelation:
                        s="Original data, SNR = {:.1f}".format(float(SNR)),
                        fontsize=9,
                        horizontalalignment='right',
-                       bbox={'color': 'k', 'facecolor': 'white'})
+                       bbox={'edgecolor': 'black', 'facecolor': 'white', 'alpha': 0.5})
 
         # formatting axes
         axlist[0].set_xlim(xlim)
@@ -677,7 +677,7 @@ class CrossCorrelation:
                     s="{} - {} s, SNR = {:.1f}".format(tmin, tmax, SNR),
                     fontsize=9,
                     horizontalalignment='right',
-                    bbox={'color': 'k', 'facecolor': 'white'})
+                    bbox={'edgecolor': 'black', 'facecolor': 'white', 'alpha': 0.5})
 
             if lastplot:
                 # adding label to signalwindows
@@ -686,7 +686,7 @@ class CrossCorrelation:
                         s="Signal window",
                         horizontalalignment='center',
                         fontsize=8,
-                        bbox={'color': 'k', 'facecolor': 'white'})
+                        bbox={'edgecolor': 'black', 'facecolor': 'white', 'alpha': 0.5})
 
                 # adding label to noise windows
                 ax.text(x=sum(tnoise) / 2,
@@ -694,7 +694,7 @@ class CrossCorrelation:
                         s="Noise window",
                         horizontalalignment='center',
                         fontsize=8,
-                        bbox={'color': 'k', 'facecolor': 'white'})
+                        bbox={'edgecolor': 'black', 'facecolor': 'white', 'alpha': 0.5})
 
             # formatting axes
             ax.set_xlim(xlim)
@@ -1283,7 +1283,7 @@ class CrossCorrelation:
         x = (xlim[0] + xlim[1]) / 2.0
         y = ylim[0] + 0.05 * (ylim[1] - ylim[0])
         ax.text(x, y, "Raw FTAN", fontsize=12,
-                bbox={'color': 'k', 'facecolor': 'white', 'lw': 0.5},
+                bbox={'edgecolor': 'black', 'facecolor': 'white', 'alpha': 0.5},
                 horizontalalignment='center',
                 verticalalignment='center')
         ax.set_xlim(xlim)
@@ -1330,17 +1330,28 @@ class CrossCorrelation:
         ax.errorbar(x=cleanvg.periods, y=vels, yerr=sdevs, fmt=fmt, color='black',
                     lw=2, label='clean disp curve')
 
+        # plotting cut-off period
+        cutoffperiod = self.dist() / 12.0
+        ax.plot([cutoffperiod, cutoffperiod], ylim, color='grey')
+
         # legend
         ax.legend(fontsize=11, loc='upper right')
         x = (xlim[0] + xlim[1]) / 2.0
         y = ylim[0] + 0.05 * (ylim[1] - ylim[0])
+
         ax.text(x, y, "Clean FTAN", fontsize=12,
-                bbox={'color': 'k', 'facecolor': 'white', 'lw': 0.5},
+                bbox={'edgecolor': 'black', 'facecolor': 'white', 'alpha': 0.5},
                 horizontalalignment='center',
                 verticalalignment='center')
-        # plotting cut-off period
-        cutoffperiod = self.dist() / 12.0
-        ax.plot([cutoffperiod, cutoffperiod], ylim, color='grey')
+
+        # workaround for bug: data plots over legend when using Axes.twinx
+        all_axes = fig.get_axes()
+        for axis in all_axes:
+            legend = axis.get_legend()
+            if legend is not None:
+                legend.remove()
+                all_axes[-1].add_artist(legend)
+
         # setting initial extent
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
