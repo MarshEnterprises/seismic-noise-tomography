@@ -120,7 +120,7 @@ class MonthCrossCorrelation:
         self.month = month
 
         # initializing stats
-        self.nday = 0
+        self.nslice = 0
 
         # data array of month cross-correlation
         self.dataarray = np.zeros(ndata)
@@ -129,11 +129,11 @@ class MonthCrossCorrelation:
         """
         Returns the relative month fill (between 0-1)
         """
-        return float(self.nday) / monthrange(year=self.month.y, month=self.month.m)[1]
+        return float(self.nslice) / monthrange(year=self.month.y, month=self.month.m)[1]
 
     def __repr__(self):
-        s = '<cross-correlation over single month {}: {} days>'
-        return s.format(self.month, self.nday)
+        s = '<cross-correlation over single month {}: {} timeslices>'
+        return s.format(self.month, self.nslice)
 
 
 class CrossCorrelation:
@@ -142,7 +142,8 @@ class CrossCorrelation:
     - a pair of stations
     - a pair of sets of locations (from trace.location)
     - a pair of sets of ids (from trace.id)
-    - start day, end day and nb of days of cross-correlation
+    - start time, end time and nb of timeslices of cross-correlation
+    - distance between stations
     - distance between stations
     - a time array and a (cross-correlation) data array
     """
@@ -166,9 +167,9 @@ class CrossCorrelation:
         self.ids2 = set()
 
         # initializing stats
-        self.startday = None
-        self.endday = None
-        self.nday = 0
+        self.starttime = None
+        self.endtime = None
+        self.nslice = 0
 
         # initializing time and data arrays of cross-correlation
         nmax = int(xcorr_tmax / xcorr_dt)
@@ -183,22 +184,22 @@ class CrossCorrelation:
         self.monthxcs = []
 
     def __repr__(self):
-        s = '<cross-correlation between stations {0}-{1}: avg {2} days>'
-        return s.format(self.station1.name, self.station2.name, self.nday)
+        s = '<cross-correlation between stations {0}-{1}: avg {2} timeslices>'
+        return s.format(self.station1.name, self.station2.name, self.nslice)
 
     def __str__(self):
         """
         E.g., 'Cross-correlation between stations SPB['10'] - ITAB['00','10']:
-               365 days from 2002-01-01 to 2002-12-01'
+               365 timeslices from 2002-01-01 to 2002-12-01'
         """
         locs1 = ','.join(sorted("'{}'".format(loc) for loc in self.locs1))
         locs2 = ','.join(sorted("'{}'".format(loc) for loc in self.locs2))
         s = ('Cross-correlation between stations '
              '{sta1}[{locs1}]-{sta2}[{locs2}]: '
-             '{nday} days from {start} to {end}')
+             '{nslice} timeslices from {start} to {end}')
         return s.format(sta1=self.station1.name, locs1=locs1,
-                        sta2=self.station2.name, locs2=locs2, nday=self.nday,
-                        start=self.startday, end=self.endday)
+                        sta2=self.station2.name, locs2=locs2, nslice=self.nslice,
+                        start=self.starttime, end=self.endtime)
 
     def dist(self):
         """
@@ -244,12 +245,12 @@ class CrossCorrelation:
 
         # stacking cross-corr
         self.dataarray += xcorr
-        # updating stats: 1st day, last day, nb of days of cross-corr
-        startday = (tr1.stats.starttime + ONESEC).date
-        self.startday = min(self.startday, startday) if self.startday else startday
-        endday = (tr1.stats.endtime - ONESEC).date
-        self.endday = max(self.endday, endday) if self.endday else endday
-        self.nday += 1
+        # updating stats: 1st timeslice, last timeslice, nb of timeslices of cross-corr
+        starttime= (tr1.stats.starttime + ONESEC)
+        self.starttime = min(self.starttime, starttime) if self.starttime else starttime
+        endtime = (tr1.stats.endtime - ONESEC)
+        self.endtime = max(self.endtime, endtime) if self.endtime else endtime
+        self.nslice += 1
 
         # stacking cross-corr over single month
         month = MonthYear((tr1.stats.starttime + ONESEC).date)
@@ -261,7 +262,7 @@ class CrossCorrelation:
             monthxc = MonthCrossCorrelation(month=month, ndata=len(self.timearray))
             self.monthxcs.append(monthxc)
         monthxc.dataarray += xcorr
-        monthxc.nday += 1
+        monthxc.nslice += 1
 
         # updating (adding) locs and ids
         self.locs1.add(tr1.stats.location)
@@ -1398,7 +1399,7 @@ class CrossCorrelation:
         gs4.update(left=0.85, right=0.98, bottom=0.51)
         gs5.update(left=0.87, right=0.98, top=0.48)
 
-        # figure title, e.g., 'BL.GNSB-IU.RCBR, dist=1781 km, ndays=208'
+        # figure title, e.g., 'BL.GNSB-IU.RCBR, dist=1781 km, nslices=208'
         title = self._FTANplot_title(months=months)
         fig.suptitle(title, fontsize=14)
 
@@ -1412,36 +1413,36 @@ class CrossCorrelation:
 
     def _plottitle(self, prefix='', months=None):
         """
-        E.g., 'SPB-ITAB (365 days from 2002-01-01 to 2002-12-01)'
-           or 'SPB-ITAB (90 days in months 01-2002, 02-2002)'
+        E.g., 'SPB-ITAB (365 timeslices from 2002-01-01 to 2002-12-01)'
+           or 'SPB-ITAB (90 timeslices in months 01-2002, 02-2002)'
         """
         s = '{pref}{sta1}-{sta2} '
         s = s.format(pref=prefix, sta1=self.station1.name, sta2=self.station2.name)
         if not months:
-            nday = self.nday
-            s += '({} days from {} to {})'.format(
-                nday, self.startday.strftime('%d/%m/%Y'),
-                self.endday.strftime('%d/%m/%Y'))
+            nslice = self.nslice
+            s += '({} timeslices from {} to {})'.format(
+                nslice, self.starttime.strftime('%d/%m/%Y'),
+                self.endtime.strftime('%d/%m/%Y'))
         else:
             monthxcs = [mxc for mxc in self.monthxcs if mxc.month in months]
-            nday = sum(monthxc.nday for monthxc in monthxcs)
+            nslice = sum(monthxc.nslice for monthxc in monthxcs)
             strmonths = ', '.join(str(m.month) for m in monthxcs)
-            s += '{} days in months {}'.format(nday, strmonths)
+            s += '{} timeslices in months {}'.format(nslice, strmonths)
         return s
 
     def _FTANplot_title(self, months=None):
         """
-        E.g., 'BL.GNSB-IU.RCBR, dist=1781 km, ndays=208'
+        E.g., 'BL.GNSB-IU.RCBR, dist=1781 km, nslices=208'
         """
         if not months:
-            nday = self.nday
+            nslice = self.nslice
         else:
-            nday = sum(monthxc.nday for monthxc in self.monthxcs
+            nslice = sum(monthxc.nslice for monthxc in self.monthxcs
                        if monthxc.month in months)
-        title = u"{}-{}, dist={:.0f} km, ndays={}"
+        title = u"{}-{}, dist={:.0f} km, nslices={}"
         title = title.format(self.station1.network + '.' + self.station1.name,
                              self.station2.network + '.' + self.station2.name,
-                             self.dist(), nday)
+                             self.dist(), nslice)
         return title
 
     def _get_xcorr_dt(self):
@@ -1504,7 +1505,7 @@ class CrossCorrelationCollection(AttribDict):
         s = '(AttribDict)<Collection of cross-correlation between {0} pairs>'
         return s.format(npair)
 
-    def pairs(self, sort=False, minday=1, minSNR=None, mindist=None,
+    def pairs(self, sort=False, minslice=1, minSNR=None, mindist=None,
               withnets=None, onlywithnets=None, pairs_subset=None,
               **kwargs):
         """
@@ -1514,7 +1515,7 @@ class CrossCorrelationCollection(AttribDict):
         Additional arguments in *kwargs* are sent to xc.SNR().
 
         @type sort: bool
-        @type minday: int
+        @type minslices: int
         @type minSNR: float
         @type mindist: float
         @type withnets: list of str
@@ -1531,9 +1532,9 @@ class CrossCorrelationCollection(AttribDict):
             pairs_subset = [set(pair) for pair in pairs_subset]
             pairs = [pair for pair in pairs if set(pair) in pairs_subset]
 
-        # filtering by nb of days
+        # filtering by nb of timeslices
         pairs = [(s1, s2) for (s1, s2) in pairs
-                 if self[s1][s2].nday >= minday]
+                 if self[s1][s2].nslice >= minslice]
 
         # filtering by min SNR
         if minSNR:
@@ -1663,14 +1664,14 @@ class CrossCorrelationCollection(AttribDict):
             print
 
     def plot(self, plot_type='distance', xlim=None, norm=True, whiten=False,
-             sym=False, minSNR=None, minday=1, withnets=None, onlywithnets=None,
+             sym=False, minSNR=None, minslice=1, withnets=None, onlywithnets=None,
              figsize=(21.0, 12.0), outfile=None, dpi=300, showplot=True):
         """
         method to plot a collection of cross-correlations
         """
 
         # preparing pairs
-        pairs = self.pairs(minday=minday, minSNR=minSNR, withnets=withnets,
+        pairs = self.pairs(minslice=minslice, minSNR=minSNR, withnets=withnets,
                            onlywithnets=onlywithnets)
         npair = len(pairs)
         if not npair:
@@ -1714,10 +1715,10 @@ class CrossCorrelationCollection(AttribDict):
                 # title
                 locs1 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs1]))
                 locs2 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs2]))
-                s = '{s1}[{locs1}]-{s2}[{locs2}]: {nday} days from {t1} to {t2}'
+                s = '{s1}[{locs1}]-{s2}[{locs2}]: {nslice} timeslices from {t1} to {t2}'
                 title = s.format(s1=s1, locs1=locs1, s2=s2, locs2=locs2,
-                                 nday=xcplot.nday, t1=xcplot.startday,
-                                 t2=xcplot.endday)
+                                 nslice=xcplot.nslice, t1=xcplot.starttime,
+                                 t2=xcplot.endtime)
                 plt.title(title)
 
                 # x-axis label
@@ -1779,11 +1780,11 @@ class CrossCorrelationCollection(AttribDict):
                 net2 = xcplot.station2.network
                 locs1 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs1]))
                 locs2 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs2]))
-                s = '{net1}.{s1}[{locs1}]-{net2}.{s2}[{locs2}]: {nday} days {t1}-{t2}'
+                s = '{net1}.{s1}[{locs1}]-{net2}.{s2}[{locs2}]: {nslice} timeslices {t1}-{t2}'
                 s = s.format(net1=net1, s1=s1, locs1=locs1, net2=net2, s2=s2,
-                             locs2=locs2, nday=xcplot.nday,
-                             t1=xcplot.startday.strftime('%d/%m/%y'),
-                             t2=xcplot.endday.strftime('%d/%m/%y'))
+                             locs2=locs2, nslice=xcplot.nslice,
+                             t1=xcplot.starttime.strftime('%d/%m/%y'),
+                             t2=xcplot.endtime.strftime('%d/%m/%y'))
 
                 bbox = {'color': color, 'facecolor': 'white', 'alpha': 0.9}
                 arrowprops = {'arrowstyle': "-", 'relpos': relpos, 'color': color}
@@ -1813,7 +1814,7 @@ class CrossCorrelationCollection(AttribDict):
         plt.close()
 
     def plot_spectral_SNR(self, whiten=False, minSNR=None, minspectSNR=None,
-                          minday=1, mindist=None, withnets=None, onlywithnets=None,
+                          minslice=1, mindist=None, withnets=None, onlywithnets=None,
                           vmin=SIGNAL_WINDOW_VMIN, vmax=SIGNAL_WINDOW_VMAX,
                           signal2noise_trail=SIGNAL2NOISE_TRAIL,
                           noise_window_size=NOISE_WINDOW_SIZE):
@@ -1822,7 +1823,7 @@ class CrossCorrelationCollection(AttribDict):
         """
 
         # filtering pairs
-        pairs = self.pairs(minday=minday, minSNR=minSNR, mindist=mindist,
+        pairs = self.pairs(minslice=minslice, minSNR=minSNR, mindist=mindist,
                            withnets=withnets, onlywithnets=onlywithnets,
                            vmin=vmin, vmax=vmax,
                            signal2noise_trail=signal2noise_trail,
@@ -1873,9 +1874,9 @@ class CrossCorrelationCollection(AttribDict):
             net1 = xc.station1.network
             net2 = xc.station2.network
 
-            s = '{i}: {net1}.{s1}-{net2}.{s2}: {dist:.1f} km, {nday} days'
+            s = '{i}: {net1}.{s1}-{net2}.{s2}: {dist:.1f} km, {nslice} timeslices'
             s = s.format(i=ipair, net1=net1, s1=s1, net2=net2, s2=s2,
-                         dist=xc.dist(), nday=xc.nday)
+                         dist=xc.dist(), nslice=xc.nslice)
 
             bbox = {'color': color, 'facecolor': 'white', 'alpha': 0.9}
             arrowprops = {'arrowstyle': '-', 'relpos': relpos, 'color': color}
@@ -1891,7 +1892,7 @@ class CrossCorrelationCollection(AttribDict):
         plt.grid()
         plt.show()
 
-    def plot_pairs(self, minSNR=None, minspectSNR=None, minday=1, mindist=None,
+    def plot_pairs(self, minSNR=None, minspectSNR=None, minslice=1, mindist=None,
                    withnets=None, onlywithnets=None, pairs_subset=None, whiten=False,
                    stationlabel=False, bbox=BBOX_LARGE, xsize=10, plotkwargs=None,
                    SNRkwargs=None):
@@ -1905,7 +1906,7 @@ class CrossCorrelationCollection(AttribDict):
             SNRkwargs = {}
 
         # filtering pairs
-        pairs = self.pairs(minday=minday, minSNR=minSNR, mindist=mindist,
+        pairs = self.pairs(minslice=minslice, minSNR=minSNR, mindist=mindist,
                            withnets=withnets, onlywithnets=onlywithnets,
                            pairs_subset=pairs_subset, **SNRkwargs)
 
@@ -2149,7 +2150,7 @@ class CrossCorrelationCollection(AttribDict):
         # writing data file: time array (1st column)
         # and cross-corr array (one column per pair)
         f = psutils.openandbackup(outprefix + '.txt', mode='w')
-        pairs = [(s1, s2) for (s1, s2) in self.pairs(sort=True) if self[s1][s2].nday]
+        pairs = [(s1, s2) for (s1, s2) in self.pairs(sort=True) if self[s1][s2].nslice]
 
         # writing header
         header = ['time'] + ["{0}-{1}".format(s1, s2) for s1, s2 in pairs]
@@ -2178,7 +2179,7 @@ class CrossCorrelationCollection(AttribDict):
         # header
         header = ['pair', 'lon1', 'lat1', 'lon2', 'lat2',
                   'locs1', 'locs2', 'ids1', 'ids2',
-                  'distance', 'startday', 'endday', 'nday']
+                  'distance', 'starttime', 'endtime', 'nslice']
         f.write('\t'.join(header) + '\n')
 
         # fields
@@ -2194,9 +2195,9 @@ class CrossCorrelationCollection(AttribDict):
                 ','.join(sorted(sid for sid in self[s1][s2].ids1)),
                 ','.join(sorted(sid for sid in self[s1][s2].ids2)),
                 self[s1][s2].dist(),
-                self[s1][s2].startday,
-                self[s1][s2].endday,
-                self[s1][s2].nday
+                self[s1][s2].starttime,
+                self[s1][s2].endtime,
+                self[s1][s2].nslice
             ]
             line = [str(fld) if (fld or fld == 0) else 'none' for fld in fields]
             f.write('\t'.join(line) + '\n')
@@ -2218,20 +2219,20 @@ class CrossCorrelationCollection(AttribDict):
         if not stations:
             # extracting the list of stations from cross-correlations
             # if not provided
-            stations = self.stations(self.pairs(minday=0), sort=True)
+            stations = self.stations(self.pairs(minslice=0), sort=True)
 
         # opening stations file and writing:
-        # station name, network, lon, lat, nb of pairs, total days of cross-corr
+        # station name, network, lon, lat, nb of pairs, total timeslices of cross-corr
         f = psutils.openandbackup(outprefix + '.stations.txt', mode='w')
-        header = ['name', 'network', 'lon', 'lat', 'npair', 'nday']
+        header = ['name', 'network', 'lon', 'lat', 'npair', 'nslice']
         f.write('\t'.join(header) + '\n')
 
         for station in stations:
             # pairs in which station appears
             pairs = [(s1, s2) for s1, s2 in self.pairs()
                      if station in [self[s1][s2].station1, self[s1][s2].station2]]
-            # total nb of days of pairs
-            nday = sum(self[s1][s2].nday for s1, s2 in pairs)
+            # total nb of timeslices of pairs
+            nslice = sum(self[s1][s2].nslice for s1, s2 in pairs)
             # writing fields
             fields = [
                 station.name,
@@ -2239,7 +2240,7 @@ class CrossCorrelationCollection(AttribDict):
                 str(station.coord[0]),
                 str(station.coord[1]),
                 str(len(pairs)),
-                str(nday)
+                str(nslice)
             ]
             f.write('\t'.join(fields) + '\n')
 
@@ -2267,11 +2268,10 @@ class CrossCorrelationCollection(AttribDict):
         return reftimearray
 
 
-def get_merged_trace(station, date, skiplocs=CROSSCORR_SKIPLOCS, minfill=MINFILL):
+def get_merged_trace(station, slicetime, skiplocs=CROSSCORR_SKIPLOCS, minfill=MINFILL):
     """
-    Returns one trace extracted from selected station, at selected date
-    (+/- 1 hour on each side to avoid edge effects during subsequent
-    processing).
+    Returns one trace extracted from selected station, at selected time slice
+    (+/- half of the time slice on either side required for cross correlation).
 
     Traces whose location belongs to *skiplocs* are discarded, then
     if several locations remain, only the first is kept. Finally,
@@ -2283,19 +2283,27 @@ def get_merged_trace(station, date, skiplocs=CROSSCORR_SKIPLOCS, minfill=MINFILL
     - data fill is < *minfill*
 
     @type station: L{psstation.Station}
-    @type date: L{datetime.date}
+    @type slicetimes: list of time slice start times
     @param skiplocs: list of locations to discard in station's data
     @type skiplocs: iterable
     @param minfill: minimum data fill to keep trace
     @rtype: L{Trace}
     """
 
-    # getting station's stream at selected date
-    # (+/- one hour to avoid edge effects when removing response)
-    t0 = UTCDateTime(date)  # date at time 00h00m00s
-    st = read(pathname_or_url=station.getpath(date),
-              starttime=t0 - dt.timedelta(hours=1),
-              endtime=t0 + dt.timedelta(days=1, hours=1))
+    # getting station's stream at selected time slice
+    # (+/- one shift length to avoid edge effects when removing response)
+    # |-----|-------------|-----|
+    #    b         c         b      b = buffer, to avoid edge effects, c = window to be correlated
+    # len(b) == len(s) / 3 == shift length
+    # !! might be revised
+    t0 = UTCDateTime(slicetime)
+    st = read(pathname_or_url=station.getpath(slicetime),
+              starttime=t0 - CROSSCORR_TMAX * 2.5,
+              endtime=t0 + CROSSCORR_TMAX * 2.5)
+
+    # removing traces with length < CROSSCORR_TMAX * 5. Expected at month edges.
+    for tr in [tr for tr in st if tr.stats.endtime - tr.stats.starttime < 5 * CROSSCORR_TMAX]:
+        st.remove(tr)
 
     # removing traces of stream from locations to skip
     for tr in [tr for tr in st if tr.stats.location in skiplocs]:
@@ -2312,7 +2320,7 @@ def get_merged_trace(station, date, skiplocs=CROSSCORR_SKIPLOCS, minfill=MINFILL
             st.remove(tr)
 
     # Data fill for current date
-    fill = psutils.get_fill(st, starttime=t0, endtime=t0 + dt.timedelta(days=1))
+    fill = psutils.get_fill(st, starttime=t0, endtime=t0 + CROSSCORR_TMAX)
     if fill < minfill:
         # not enough data
         raise pserrors.CannotPreprocess("{:.0f}% fill".format(fill * 100))
@@ -2441,9 +2449,9 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
         trace.remove_response(output="VEL", zero_mean=True)
 
     # trimming, demeaning, detrending
-    midt = trace.stats.starttime + (trace.stats.endtime - trace.stats.starttime) / 2.0
-    t0 = UTCDateTime(midt.date)  # date of trace, at time 00h00m00s
-    trace.trim(starttime=t0, endtime=t0 + dt.timedelta(days=1))
+    #midt = trace.stats.starttime + (trace.stats.endtime - trace.stats.starttime) / 2.0
+    #t0 = UTCDateTime(midt.date)  # date of trace, at time 00h00m00s
+    #trace.trim(starttime=t0, endtime=t0 + dt.timedelta(days=1)) # !! ben this should not be handled here
     trace.detrend(type='constant')
     trace.detrend(type='linear')
 

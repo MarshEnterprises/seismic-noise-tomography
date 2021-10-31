@@ -9,6 +9,7 @@ import os
 import glob
 import json
 import datetime as dt
+from obspy.core.utcdatetime import UTCDateTime
 import numpy as np
 
 
@@ -103,9 +104,9 @@ CROSSCORR_SKIPLOCS = json.loads(config.get('cross-correlation', 'CROSSCORR_SKIPL
 
 # first and last day, minimum data fill per day
 FIRSTDAY = config.get('cross-correlation', 'FIRSTDAY')
-FIRSTDAY = dt.datetime.strptime(FIRSTDAY, '%d/%m/%Y').date()
+FIRSTDAY = UTCDateTime(FIRSTDAY)
 LASTDAY = config.get('cross-correlation', 'LASTDAY')
-LASTDAY = dt.datetime.strptime(LASTDAY, '%d/%m/%Y').date()
+LASTDAY = UTCDateTime(LASTDAY)
 MINFILL = config.getfloat('cross-correlation', 'MINFILL')
 
 # band-pass parameters

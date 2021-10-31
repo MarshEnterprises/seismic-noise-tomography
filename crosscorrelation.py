@@ -25,8 +25,8 @@ The implemented algorithm follows the lines of Bensen et al.,
 "Processing seismic ambient noise data to obtain reliable broad-band
 surface wave dispersion measurements", Geophys. J. Int. (2007).
 
-The procedure consists in stacking daily cross-correlations between
-pairs of stations, from *FIRSTDAY* to *LASTDAY* and, in each given day,
+The procedure consists in stacking cross-correlations between pairs
+of stations, from *FIRSTDAY* to *LASTDAY* and, in each given time slice,
 rejecting stations whose data fill is < *MINFILL*. Define a subset of
 stations to cross-correlate in *CROSSCORR_STATIONS_SUBSET* (or let it
 empty to cross-correlate all stations). Define a list of locations to
@@ -79,12 +79,12 @@ The files, depending on their extension, contain the following data:
                   (one column per pair);
 
 - .stats.txt    = general information on cross-correlations in ascii
-                  format: stations coordinates, number of days, inter-
+                  format: stations coordinates, number of slices, inter-
                   station distance etc.
 
 - .stations.txt = general information on the stations: coordinates,
                   nb of cross-correlations in which it appears, total
-                  nb of days it has been cross-correlated etc.
+                  nb of slices it has been cross-correlated etc.
 
 - .png          = figure showing all the cross-correlations (normalized to
                   unity), stacked as a function of inter-station distance.
@@ -98,6 +98,7 @@ import datetime as dt
 import itertools as it
 import pickle
 import obspy.signal.cross_correlation
+from obspy.core.utcdatetime import UTCDateTime
 
 # turn on multiprocessing to get one merged trace per station?
 # to preprocess trace? to stack cross-correlations?
@@ -196,22 +197,21 @@ stations = psstation.get_stations(mseed_dir=MSEED_DIR,
 # Initializing collection of cross-correlations
 xc = pscrosscorr.CrossCorrelationCollection()
 
-# Loop on day
-nday = (LASTDAY - FIRSTDAY).days + 1
-dates = [FIRSTDAY + dt.timedelta(days=i) for i in range(nday)]
-for date in dates:
+# Loop on timeslice
+nslice = int((LASTDAY - FIRSTDAY) / CROSSCORR_TMAX)
+slicetimes = [UTCDateTime(FIRSTDAY) + i * CROSSCORR_TMAX for i in range(nslice)]
 
+for slicetime in slicetimes:
     # exporting the collection of cross-correlations after the end of each
     # processed month (allows to restart after a crash from that date)
-    if date.day == 1:
+    if (slicetime - CROSSCORR_TMAX).month + 1 == slicetime.month:
         with open(u'{}.part.pickle'.format(OUTFILESPATH), 'wb') as f:
-            print "\nExporting cross-correlations calculated until now to: " + f.name
+            print("\nExporting cross-correlations calculated until now to: " + f.name)
             pickle.dump(xc, f, protocol=2)
 
-    print "\nProcessing data of day {}".format(date)
-
+    print("\nProcessing data of timeslice {}".format(slicetime))
     # loop on stations appearing in subdir corresponding to current month
-    month_subdir = '{year}-{month:02d}'.format(year=date.year, month=date.month)
+    month_subdir = '{year}-{month:02d}'.format(year=slicetime.year, month=slicetime.month)
     month_stations = sorted(sta for sta in stations if month_subdir in sta.subdirs)
 
     # subset if stations (if provided)
@@ -227,11 +227,11 @@ for date in dates:
     def get_merged_trace(station):
         """
         Preparing func that returns one trace from selected station,
-        at current date. Function is ready to be parallelized.
+        at current timeslice. Function is ready to be parallelized.
         """
         try:
             trace = pscrosscorr.get_merged_trace(station=station,
-                                                 date=date,
+                                                 slicetime=slicetime,
                                                  skiplocs=CROSSCORR_SKIPLOCS,
                                                  minfill=MINFILL)
             errmsg = None
@@ -246,7 +246,7 @@ for date in dates:
 
         if errmsg:
             # printing error message
-            print '{}.{} [{}] '.format(station.network, station.name, errmsg),
+            print('{}.{} [{}] '.format(station.network, station.name, errmsg),)
 
         return trace
 
@@ -367,12 +367,12 @@ for date in dates:
     delta = (dt.datetime.now() - t0).total_seconds()
     print "\nProcessed stations in {:.1f} seconds".format(delta)
 
-    # ==============================================
-    # stacking cross-correlations of the current day
-    # ==============================================
+    # =====================================================
+    # stacking cross-correlations of the current time slice
+    # =====================================================
 
     if len(tracedict) < 2:
-        print "No cross-correlation for this day"
+        print "No cross-correlation for this time slice"
         continue
 
     t0 = dt.datetime.now()
