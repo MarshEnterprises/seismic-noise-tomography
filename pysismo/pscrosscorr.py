@@ -235,8 +235,10 @@ class CrossCorrelation:
         # cross-correlation
         if xcorr is None:
             # calculating cross-corr using obspy, if not already provided
-            xcorr = obspy.signal.cross_correlation.xcorr(
-                tr1, tr2, shift_len=self._get_xcorr_nmax(), full_xcorr=True)[2]
+            # xcorr = obspy.signal.cross_correlation.xcorr(
+            #     tr1, tr2, shift_len=self._get_xcorr_nmax(), full_xcorr=True)[2]
+            xcorr = obspy.signal.cross_correlation.correlate(
+                tr1, tr2, shift=self._get_xcorr_nmax())
 
         # verifying that we don't have NaN
         if np.any(np.isnan(xcorr)):
