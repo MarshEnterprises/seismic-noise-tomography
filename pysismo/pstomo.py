@@ -3,7 +3,7 @@ Definition of classes handling dispersion curves and
 velocity maps (obtained by inverting dispersion curves)
 """
 
-import pserrors, psutils
+from pysismo import pserrors, psutils
 import itertools as it
 import numpy as np
 from scipy.optimize import curve_fit
@@ -24,7 +24,7 @@ from inspect import getargspec
 # ====================================================
 # parsing configuration file to import some parameters
 # ====================================================
-from psconfig import (
+from pysismo.psconfig import (
     SIGNAL_WINDOW_VMIN, SIGNAL_WINDOW_VMAX, SIGNAL2NOISE_TRAIL, NOISE_WINDOW_SIZE,
     MINSPECTSNR, MINSPECTSNR_NOSDEV, MAXSDEV, MINNBTRIMESTER, MAXPERIOD_FACTOR,
     LONSTEP, LATSTEP, CORRELATION_LENGTH, ALPHA, BETA, LAMBDA,
@@ -658,21 +658,21 @@ class VelocityMap:
         lambda_ = kwargs.get('lambda_', LAMBDA)
 
         if verbose:
-            print "Velocities selection criteria:"
-            print "- rejecting velocities if SNR < {}".format(minspectSNR)
+            print("Velocities selection criteria:")
+            print("- rejecting velocities if SNR < {}".format(minspectSNR))
             s = "- rejecting velocities without std dev if SNR < {}"
-            print s.format(minspectSNR_nosdev)
+            print(s.format(minspectSNR_nosdev))
             s = "- estimating standard dev of velocities with more than {} trimesters"
-            print s.format(minnbtrimester)
-            print "- rejecting velocities with standard dev > {} km/s".format(maxsdev)
-            print "\nTomographic inversion parameters:"
-            print "- {} x {} deg grid".format(lonstep, latstep)
+            print(s.format(minnbtrimester))
+            print("- rejecting velocities with standard dev > {} km/s".format(maxsdev))
+            print("\nTomographic inversion parameters:")
+            print("- {} x {} deg grid".format(lonstep, latstep))
             s = "- correlation length of the smoothing kernel: {} km"
-            print s.format(correlation_length)
-            print "- strength of the spatial smoothing term: {}".format(alpha)
-            print "- strength of the norm penalization term: {}".format(beta)
-            print "- weighting norm by exp(- {} * path_density)".format(lambda_)
-            print
+            print(s.format(correlation_length))
+            print("- strength of the spatial smoothing term: {}".format(alpha))
+            print("- strength of the norm penalization term: {}".format(beta))
+            print("- weighting norm by exp(- {} * path_density)".format(lambda_))
+            print()
 
         # skipping stations and pairs
         if skipstations:
@@ -740,7 +740,7 @@ class VelocityMap:
         # = vector of differences observed-reference travel time
         # ======================================================
         if verbose:
-            print 'Setting up reference velocity (v0) and data vector (dobs)'
+            print('Setting up reference velocity (v0) and data vector (dobs)')
 
         # reference velocity = inverse of mean slowness
         # mean slowness = slowness implied by observed travel-times
@@ -753,7 +753,7 @@ class VelocityMap:
 
         # inverse of covariance matrix of the data
         if verbose:
-            print 'Setting up covariance matrix (C)'
+            print('Setting up covariance matrix (C)')
         sigmad = sigmav * dists / vels**2
         self.Cinv = np.matrix(np.zeros((len(sigmav), len(sigmav))))
         np.fill_diagonal(self.Cinv, 1.0 / sigmad**2)
@@ -771,7 +771,7 @@ class VelocityMap:
 
         # geodesic paths associated with pairs of stations of dispersion curves
         if verbose:
-            print 'Calculating interstation paths'
+            print('Calculating interstation paths')
         self.paths = []
         for curve, dist in zip(self.disp_curves, dists):
             # interpoint distance <= 1 km, and nb of points >= 100
@@ -787,7 +787,7 @@ class VelocityMap:
         # ================================================
         G = np.zeros((len(self.paths), self.grid.n_nodes()))
         if verbose:
-            print 'Setting up {} x {} forward matrix (G)'.format(*G.shape)
+            print('Setting up {} x {} forward matrix (G)'.format(*G.shape))
         for ipath, path in enumerate(self.paths):
 
             # for each point M along the path (1) we determine the Delaunay
@@ -834,7 +834,7 @@ class VelocityMap:
 
         # path densities around grid's nodes
         if verbose:
-            print "Calculating path densities"
+            print("Calculating path densities")
         self.density = self.path_density()
 
         # =====================================================================
@@ -854,7 +854,7 @@ class VelocityMap:
         dists = np.zeros((self.grid.n_nodes(), self.grid.n_nodes()))
 
         if verbose:
-            print "Setting up {} x {} regularization matrix (Q)".format(*dists.shape)
+            print("Setting up {} x {} regularization matrix (Q)".format(*dists.shape))
 
         # indices of the upper right triangle of distance matrix
         # = (array of index #1, array of index #2)
@@ -894,20 +894,20 @@ class VelocityMap:
 
         # covariance matrix and inversion operator
         if verbose:
-            print "Setting up covariance matrix of best-fitting params (covmopt)"
+            print("Setting up covariance matrix of best-fitting params (covmopt)")
         self.covmopt = (self.G.T * self.Cinv * self.G + self.Q).I
         if verbose:
-            print "Setting up inversion operator (Ginv)"
+            print("Setting up inversion operator (Ginv)")
         self.Ginv = self.covmopt * self.G.T
 
         # vector of best-fitting parameters
         if verbose:
-            print "Estimating best-fitting parameters (mopt)"
+            print("Estimating best-fitting parameters (mopt)")
         self.mopt = self.Ginv * self.Cinv * self.dobs
 
         # resolution matrix
         if verbose:
-            print "Setting up {0} x {0} resolution matrix (R)".format(self.G.shape[1])
+            print("Setting up {0} x {0} resolution matrix (R)".format(self.G.shape[1]))
         self.R = self.Ginv * self.Cinv * self.G
 
         # ===========================================================
@@ -925,7 +925,7 @@ class VelocityMap:
         # ===========================================================
 
         if verbose:
-            print "Estimation spatial resolution (Rradius)"
+            print("Estimation spatial resolution (Rradius)")
 
         self.Rradius = np.zeros(self.grid.n_nodes())
         heights = np.zeros(self.grid.n_nodes())
@@ -1511,10 +1511,10 @@ if __name__ == '__main__':
 
     # loading dispersion curves
     flist = sorted(glob.glob(os.path.join(FTAN_DIR, 'FTAN*.pickle*')))
-    print 'Select file containing dispersion curves:'
-    print '\n'.join('{} - {}'.format(i, os.path.basename(f)) for i, f in enumerate(flist))
+    print('Select file containing dispersion curves:')
+    print('\n'.join('{} - {}'.format(i, os.path.basename(f)) for i, f in enumerate(flist)))
     pickle_file = flist[int(raw_input('\n'))]
     f = open(pickle_file, 'rb')
     curves = pickle.load(f)
     f.close()
-    print "Dispersion curves stored in variable 'curves'"
+    print("Dispersion curves stored in variable 'curves'")

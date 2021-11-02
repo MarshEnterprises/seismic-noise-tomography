@@ -17,12 +17,12 @@ from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
 import pyproj
 import itertools as it
-from pyPdf import PdfFileReader, PdfFileWriter
+from PyPDF2 import PdfFileReader, PdfFileWriter
 
 # ====================================================
 # parsing configuration file to import some parameters
 # ====================================================
-from psconfig import CROSSCORR_SKIPLOCS, COAST_SHP, TECTO_SHP, TECTO_LABELS, TECTO_COLORS
+from pysismo.psconfig import CROSSCORR_SKIPLOCS, COAST_SHP, TECTO_SHP, TECTO_LABELS, TECTO_COLORS
 
 # reference elipsoid to calculate distance
 wgs84 = pyproj.Geod(ellps='WGS84')
@@ -125,7 +125,7 @@ def clean_stream(stream, skiplocs=CROSSCORR_SKIPLOCS, verbose=False):
         select_loc = locs[0]
         if verbose:
             s = "warning: selecting loc '{loc}', discarding locs {locs}"
-            print s.format(loc=select_loc, locs=','.join(locs[1:])),
+            print(s.format(loc=select_loc, locs=','.join(locs[1:])),)
         for tr in [tr for tr in stream if tr.stats.location != select_loc]:
             stream.remove(tr)
 
@@ -142,15 +142,15 @@ def plot_nb_pairs():
 
     # selecting dispersion curves
     flist = sorted(glob.glob(os.path.join(FTAN_DIR, 'FTAN*.pickle*')))
-    print 'Select file(s) containing dispersion curves to process:'
-    print '\n'.join('{} - {}'.format(i, os.path.basename(f))
+    print('Select file(s) containing dispersion curves to process:')
+    print('\n'.join('{} - {}'.format(i, os.path.basename(f)))
                     for i, f in enumerate(flist))
     res = raw_input('\n')
     pickle_files = [flist[int(i)] for i in res.split()]
 
     for curves_file in pickle_files:
         # loading dispersion curves of file
-        print "Loading file: " + curves_file
+        print("Loading file: " + curves_file)
         f = open(curves_file, 'rb')
         curves = pickle.load(f)
         f.close()
@@ -552,7 +552,7 @@ def combine_pdf_pages(pdfpath, pagesgroups, verbose=False):
     """
     # opening input file
     if verbose:
-        print "Opening file " + pdfpath
+        print("Opening file " + pdfpath)
     fi = open(pdfpath, 'rb')
     pdf = PdfFileReader(fi)
 
@@ -562,7 +562,7 @@ def combine_pdf_pages(pdfpath, pagesgroups, verbose=False):
     # loop on groups of pages tom combine
     for pagesgroup in pagesgroups:
         if verbose:
-            print "Combining pages:",
+            print("Combining pages:",)
 
         # heights and widths
         heights = [pdf.pages[i].mediaBox.getHeight() for i in pagesgroup]
@@ -573,14 +573,14 @@ def combine_pdf_pages(pdfpath, pagesgroups, verbose=False):
         # merging pages of group
         for i, p in enumerate(pagesgroup):
             if verbose:
-                print p,
+                print(p,)
             page_out.mergeTranslatedPage(pdf.pages[p], tx=0, ty=sum(heights[i+1:]))
-        print
+        print()
 
     # exporting merged pdf into temporary output file
     fo = create_tmpfile('wb')
     if verbose:
-        print "Exporting merged pdf in file {}".format(fo.name)
+        print("Exporting merged pdf in file {}".format(fo.name))
     pdfout.write(fo)
 
     # closing files
@@ -589,7 +589,7 @@ def combine_pdf_pages(pdfpath, pagesgroups, verbose=False):
 
     # removing original file and replacing it with merged pdf
     if verbose:
-        print "Moving exported pdf to: " + pdfpath
+        print("Moving exported pdf to: " + pdfpath)
     os.remove(pdfpath)
     os.rename(fo.name, pdfpath)
 

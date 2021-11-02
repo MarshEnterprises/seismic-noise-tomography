@@ -1,4 +1,4 @@
-import psconfig
+from pysismo import psconfig
 
 # Not importing other modules here so that changing parameters in
 # psconfig will take effect when importing other modules after.

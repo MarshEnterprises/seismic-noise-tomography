@@ -4,7 +4,7 @@ file at first import, to make them available to the other
 parts of the program.
 """
 
-import ConfigParser
+import configparser
 import os
 import glob
 import json
@@ -31,16 +31,16 @@ def select_and_parse_config_file(basedir='.', ext='cnf', verbose=True):
         # only one configuration file
         config_file = config_files[0]
     else:
-        print "Select a configuration file:"
+        print("Select a configuration file:")
         for i, f in enumerate(config_files, start=1):
-            print "{} - {}".format(i, f)
+            print("{} - {}".format(i, f))
         res = int(raw_input(''))
         config_file = config_files[res - 1]
 
     if verbose:
-        print "Reading configuration file: {}".format(config_file)
+        print("Reading configuration file: {}".format(config_file))
 
-    conf = ConfigParser.ConfigParser(allow_no_value=True)
+    conf = configparser.ConfigParser(allow_no_value=True)
     conf.read(config_file)
 
     return conf

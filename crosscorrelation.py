@@ -128,25 +128,25 @@ from pysismo.psconfig import (
     ONEBIT_NORM, FREQMIN_EARTHQUAKE, FREQMAX_EARTHQUAKE, WINDOW_TIME, WINDOW_FREQ,
     CROSSCORR_WINDOW, CROSSCORR_SHIFT, CROSSCORR_ITER)
 
-print "\nProcessing parameters:"
-print "- dir of miniseed data: " + MSEED_DIR
-print "- dir of dataless seed data: " + DATALESS_DIR
-print "- dir of stationXML data: " + STATIONXML_DIR
-print "- output dir: " + CROSSCORR_DIR
-print "- band-pass: {:.1f}-{:.1f} s".format(1.0 / FREQMAX, 1.0 / FREQMIN)
+print("\nProcessing parameters:")
+print("- dir of miniseed data: " + MSEED_DIR)
+print("- dir of dataless seed data: " + DATALESS_DIR)
+print("- dir of stationXML data: " + STATIONXML_DIR)
+print("- output dir: " + CROSSCORR_DIR)
+print("- band-pass: {:.1f}-{:.1f} s".format(1.0 / FREQMAX, 1.0 / FREQMIN))
 if ONEBIT_NORM:
-    print "- normalization in time-domain: one-bit normalization"
+    print("- normalization in time-domain: one-bit normalization")
 else:
     s = ("- normalization in time-domain: "
          "running normalization in earthquake band ({:.1f}-{:.1f} s)")
-    print s.format(1.0 / FREQMAX_EARTHQUAKE, 1.0 / FREQMIN_EARTHQUAKE)
+    print(s.format(1.0 / FREQMAX_EARTHQUAKE, 1.0 / FREQMIN_EARTHQUAKE))
 fmt = '%d/%m/%Y'
 s = "- cross-correlation will be stacked between {}-{}"
-print s.format(FIRSTDAY.strftime(fmt), LASTDAY.strftime(fmt))
+print(s.format(FIRSTDAY.strftime(fmt), LASTDAY.strftime(fmt)))
 subset = CROSSCORR_STATIONS_SUBSET
 if subset:
-    print "  for stations: {}".format(', '.join(subset))
-print
+    print("  for stations: {}".format(', '.join(subset)))
+print()
 
 
 # ========================================
@@ -168,11 +168,11 @@ OUTBASENAME_PARTS = [
 ]
 OUTFILESPATH = os.path.join(CROSSCORR_DIR, '_'.join(p for p in OUTBASENAME_PARTS if p))
 
-print 'Default name of output files (without extension):\n"{}"\n'.format(OUTFILESPATH)
-suffix = raw_input("Enter suffix to append: [none]\n")
+print('Default name of output files (without extension):\n"{}"\n'.format(OUTFILESPATH))
+suffix = input("Enter suffix to append: [none]\n")
 if suffix:
     OUTFILESPATH = u'{}_{}'.format(OUTFILESPATH, suffix)
-print 'Results will be exported to files:\n"{}" (+ extension)\n'.format(OUTFILESPATH)
+print('Results will be exported to files:\n"{}" (+ extension)\n'.format(OUTFILESPATH))
 
 # ============
 # Main program
@@ -192,7 +192,7 @@ if USE_STATIONXML:
                                                            verbose=True)
 
 # Getting list of stations
-print
+print()
 stations = psstation.get_stations(mseed_dir=MSEED_DIR,
                                   xml_inventories=xml_inventories,
                                   dataless_inventories=dataless_inventories,
@@ -257,7 +257,7 @@ for slicetime in slicetimes:
 
         return trace
 
-    def preprocessed_trace((trace, response)):
+    def preprocessed_trace(trace, response):
         """
         Preparing func that returns processed trace: processing includes
         removal of instrumental response, band-pass filtering, demeaning,
@@ -297,7 +297,7 @@ for slicetime in slicetimes:
             msg = 'Unhandled error: {}'.format(err)
 
         # printing output (error or ok) message
-        print '{}.{} [{}] '.format(network, station, msg),
+        print('{}.{} [{}] '.format(network, station, msg),)
 
         # although processing is performed in-place, trace is returned
         # in order to get it back after multi-processing
@@ -352,7 +352,7 @@ for slicetime in slicetimes:
         responses.append(response)
         if errmsg:
             # printing error message
-            print '{}.{} [{}] '.format(tr.stats.network, tr.stats.station, errmsg),
+            print('{}.{} [{}] '.format(tr.stats.network, tr.stats.station, errmsg),)
 
     # =================
     # processing traces
@@ -361,25 +361,25 @@ for slicetime in slicetimes:
     if MULTIPROCESSING['process trace']:
         # multiprocessing turned on: one process per station
         pool = mp.Pool(NB_PROCESSES)
-        traces = pool.map(preprocessed_trace, zip(traces, responses))
+        traces = pool.starmap(preprocessed_trace, (traces, responses))
         pool.close()
         pool.join()
     else:
         # multiprocessing turned off: processing stations one after another
-        traces = [preprocessed_trace((tr, res)) for tr, res in zip(traces, responses)]
+        traces = [preprocessed_trace(tr, res) for tr, res in zip(traces, responses)]
 
     # setting up dict of current date's traces, {station: trace}
     tracedict = {s.name: trace for s, trace in zip(month_stations, traces) if trace}
 
     delta = (dt.datetime.now() - t0).total_seconds()
-    print "\nProcessed stations in {:.1f} seconds".format(delta)
+    print("\nProcessed stations in {:.1f} seconds".format(delta))
 
     # =====================================================
     # stacking cross-correlations of the current time slice
     # =====================================================
 
     if len(tracedict) < 2:
-        print "No cross-correlation for this time slice"
+        print("No cross-correlation for this time slice")
         continue
 
     t0 = dt.datetime.now()
@@ -388,7 +388,7 @@ for slicetime in slicetimes:
         # if multiprocessing is turned on, we pre-calculate cross-correlation
         # arrays between pairs of stations (one process per pair) and feed
         # them to xc.add() (which won't have to recalculate them)
-        print "Pre-calculating cross-correlation arrays"
+        print("Pre-calculating cross-correlation arrays")
 
         def xcorr_func(pair):
             """
@@ -396,7 +396,7 @@ for slicetime in slicetimes:
             beween two traces
             """
             (s1, tr1), (s2, tr2) = pair
-            print '{}-{} '.format(s1, s2),
+            print('{}-{} '.format(s1, s2),)
             shift = int(CROSSCORR_SHIFT / PERIOD_RESAMPLE)
             xcorr = obspy.signal.cross_correlation.correlate(
                 tr1, tr2, shift=shift, demean=False, normalize=None)
@@ -408,9 +408,9 @@ for slicetime in slicetimes:
         pool.close()
         pool.join()
         xcorrdict = {(s1, s2): xcorr for ((s1, _), (s2, _)), xcorr in zip(pairs, xcorrs)}
-        print
+        print()
 
-    print "Stacking cross-correlations"
+    print("Stacking cross-correlations")
     xc.add(tracedict=tracedict,
            stations=stations,
            xcorr_tmax=CROSSCORR_SHIFT,
@@ -418,17 +418,17 @@ for slicetime in slicetimes:
            verbose=not MULTIPROCESSING['cross-corr'])
 
     delta = (dt.datetime.now() - t0).total_seconds()
-    print "Calculated and stacked cross-correlations in {:.1f} seconds".format(delta)
+    print("Calculated and stacked cross-correlations in {:.1f} seconds".format(delta))
 
 # exporting cross-correlations
 if not xc.pairs():
-    print "No cross-correlation could be calculated: nothing to export!"
+    print("No cross-correlation could be calculated: nothing to export!")
 else:
     # exporting to binary and ascii files
     xc.export(outprefix=OUTFILESPATH, stations=stations, verbose=True)
 
     # exporting to png file
-    print "Exporting cross-correlations to file: {}.png".format(OUTFILESPATH)
+    print("Exporting cross-correlations to file: {}.png".format(OUTFILESPATH))
     # optimizing time-scale: max time = max distance / vmin (vmin = 2.5 km/s)
     maxdist = max([xc[s1][s2].dist() for s1, s2 in xc.pairs()])
     maxt = min(CROSSCORR_SHIFT, maxdist / 2.5)
