@@ -8,7 +8,6 @@ import ConfigParser
 import os
 import glob
 import json
-import datetime as dt
 from obspy.core.utcdatetime import UTCDateTime
 import numpy as np
 
@@ -134,8 +133,19 @@ WINDOW_TIME = 0.5 * PERIODMAX_EARTHQUAKE
 # and calculate spect withening weights
 WINDOW_FREQ = config.getfloat('cross-correlation', 'WINDOW_FREQ')
 
-# Max time window (s) for cross-correlation
-CROSSCORR_TMAX = config.getfloat('cross-correlation', 'CROSSCORR_TMAX')
+# time windows of 3 * shift length will be correlated
+# the resulting cross correlation will be 2 shift lengths long,
+# from - shift length to + shift length.
+
+# correlation time slice size (s)
+CROSSCORR_WINDOW = config.getfloat('cross-correlation', 'CROSSCORR_WINDOW')
+
+# correlation shift length (s). resulting correlation will have a length
+# of 2 * shift length, from - CROSSCORR_SHIFT to + CROSSCORR_SHIFT
+CROSSCORR_SHIFT = config.getfloat('cross-correlation', 'CROSSCORR_SHIFT')
+
+# time increment (s) added to get the start of the next cross-correlation window.
+CROSSCORR_ITER = config.getfloat('cross-correlation', 'CROSSCORR_ITER')
 
 
 # ---------------

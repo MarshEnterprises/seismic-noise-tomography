@@ -38,8 +38,8 @@ plt.ioff()  # turning off interactive mode
 # parsing configuration file to import some parameters
 # ====================================================
 from psconfig import (
-    CROSSCORR_DIR, FTAN_DIR, PERIOD_BANDS, CROSSCORR_TMAX, PERIOD_RESAMPLE,
-    CROSSCORR_SKIPLOCS, MINFILL, FREQMIN, FREQMAX, CORNERS, ZEROPHASE,
+    CROSSCORR_DIR, FTAN_DIR, PERIOD_BANDS, CROSSCORR_WINDOW, CROSSCORR_SHIFT,
+    PERIOD_RESAMPLE, CROSSCORR_SKIPLOCS, MINFILL, FREQMIN, FREQMAX, CORNERS, ZEROPHASE,
     ONEBIT_NORM, FREQMIN_EARTHQUAKE, FREQMAX_EARTHQUAKE, WINDOW_TIME, WINDOW_FREQ,
     SIGNAL_WINDOW_VMIN, SIGNAL_WINDOW_VMAX, SIGNAL2NOISE_TRAIL, NOISE_WINDOW_SIZE,
     RAWFTAN_PERIODS, CLEANFTAN_PERIODS, FTAN_VELOCITIES, FTAN_ALPHA, STRENGTH_SMOOTHING,
@@ -149,7 +149,7 @@ class CrossCorrelation:
     """
 
     def __init__(self, station1, station2, xcorr_dt=PERIOD_RESAMPLE,
-                 xcorr_tmax=CROSSCORR_TMAX):
+                 xcorr_tmax=CROSSCORR_SHIFT):
         """
         @type station1: L{pysismo.psstation.Station}
         @type station2: L{pysismo.psstation.Station}
@@ -235,8 +235,6 @@ class CrossCorrelation:
         # cross-correlation
         if xcorr is None:
             # calculating cross-corr using obspy, if not already provided
-            # xcorr = obspy.signal.cross_correlation.xcorr(
-            #     tr1, tr2, shift_len=self._get_xcorr_nmax(), full_xcorr=True)[2]
             xcorr = obspy.signal.cross_correlation.correlate(
                 tr1, tr2, shift=self._get_xcorr_nmax())
 
@@ -2270,7 +2268,7 @@ class CrossCorrelationCollection(AttribDict):
         return reftimearray
 
 
-def get_merged_trace(station, slicetime, skiplocs=CROSSCORR_SKIPLOCS, minfill=MINFILL):
+def get_merged_trace(station, starttime, endtime, skiplocs=CROSSCORR_SKIPLOCS, minfill=MINFILL):
     """
     Returns one trace extracted from selected station, at selected time slice
     (+/- half of the time slice on either side required for cross correlation).
@@ -2285,7 +2283,8 @@ def get_merged_trace(station, slicetime, skiplocs=CROSSCORR_SKIPLOCS, minfill=MI
     - data fill is < *minfill*
 
     @type station: L{psstation.Station}
-    @type slicetimes: list of time slice start times
+    @type starttime: list of time slice start times
+    @type endtime: list of time slice start times
     @param skiplocs: list of locations to discard in station's data
     @type skiplocs: iterable
     @param minfill: minimum data fill to keep trace
@@ -2293,18 +2292,14 @@ def get_merged_trace(station, slicetime, skiplocs=CROSSCORR_SKIPLOCS, minfill=MI
     """
 
     # getting station's stream at selected time slice
-    # (+/- one shift length to avoid edge effects when removing response)
-    # |-----|-------------|-----|
-    #    b         c         b      b = buffer, to avoid edge effects, c = window to be correlated
-    # len(b) == len(s) / 3 == shift length
-    # !! might be revised
-    t0 = UTCDateTime(slicetime)
-    st = read(pathname_or_url=station.getpath(slicetime),
-              starttime=t0 - CROSSCORR_TMAX * 2.5,
-              endtime=t0 + CROSSCORR_TMAX * 2.5)
+    tstart = UTCDateTime(starttime)
+    tend = UTCDateTime(endtime)
+    st = read(pathname_or_url=station.getpath(tstart),
+              starttime=tstart,
+              endtime=tend)
 
-    # removing traces with length < CROSSCORR_TMAX * 5. Expected at month edges.
-    for tr in [tr for tr in st if tr.stats.endtime - tr.stats.starttime < 5 * CROSSCORR_TMAX]:
+    # removing traces with length < CROSSCORR_WINDOW. Expected at the edge of stream.
+    for tr in [tr for tr in st if tr.stats.endtime - tr.stats.starttime < CROSSCORR_WINDOW]:
         st.remove(tr)
 
     # removing traces of stream from locations to skip
@@ -2322,7 +2317,7 @@ def get_merged_trace(station, slicetime, skiplocs=CROSSCORR_SKIPLOCS, minfill=MI
             st.remove(tr)
 
     # Data fill for current date
-    fill = psutils.get_fill(st, starttime=t0, endtime=t0 + CROSSCORR_TMAX)
+    fill = psutils.get_fill(st, starttime=tstart, endtime=tend)
     if fill < minfill:
         # not enough data
         raise pserrors.CannotPreprocess("{:.0f}% fill".format(fill * 100))
@@ -2450,10 +2445,7 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
         psutils.resample(trace, dt_resample=period_resample)
         trace.remove_response(output="VEL", zero_mean=True)
 
-    # trimming, demeaning, detrending
-    #midt = trace.stats.starttime + (trace.stats.endtime - trace.stats.starttime) / 2.0
-    #t0 = UTCDateTime(midt.date)  # date of trace, at time 00h00m00s
-    #trace.trim(starttime=t0, endtime=t0 + dt.timedelta(days=1)) # !! ben this should not be handled here
+    # demeaning, detrending
     trace.detrend(type='constant')
     trace.detrend(type='linear')
 

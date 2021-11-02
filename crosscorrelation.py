@@ -30,11 +30,17 @@ of stations, from *FIRSTDAY* to *LASTDAY* and, in each given time slice,
 rejecting stations whose data fill is < *MINFILL*. Define a subset of
 stations to cross-correlate in *CROSSCORR_STATIONS_SUBSET* (or let it
 empty to cross-correlate all stations). Define a list of locations to
-skip in *CROSSCORR_SKIPLOCS*, if any. The cross-correlations are
-calculated between -/+ *CROSSCORR_TMAX* seconds.
+skip in *CROSSCORR_SKIPLOCS*, if any.
 
-Several pre-processing steps are applied to the daily seismic waveform
-data, before the daily cross-correlation is calculated and stacked:
+Cross correlation time slices of length *CROSSCORR_WINDOW* seconds are
+correlated with a shift of *CROSSCORR_SHIFT* seconds to obtain a cross-
+correlation of length 2 *CROSSCORR_SHIFT*, from - *CROSSCORR_SHIFT*
+to + *CROSSCORR_SHIFT*. Cross-correlations are calculated for time slice
+pairs seperated by CROSSCORR_ITER* seconds.
+
+Several pre-processing steps are applied to the seismic waveform
+time slices, before the cross-correlation for a time slice is calculated
+and stacked:
 
 (1) removal of the instrument response, the mean and the trend;
 
@@ -120,7 +126,7 @@ from pysismo.psconfig import (
     USE_DATALESSPAZ, USE_STATIONXML, CROSSCORR_STATIONS_SUBSET, CROSSCORR_SKIPLOCS,
     FIRSTDAY, LASTDAY, MINFILL, FREQMIN, FREQMAX, CORNERS, ZEROPHASE, PERIOD_RESAMPLE,
     ONEBIT_NORM, FREQMIN_EARTHQUAKE, FREQMAX_EARTHQUAKE, WINDOW_TIME, WINDOW_FREQ,
-    CROSSCORR_TMAX)
+    CROSSCORR_WINDOW, CROSSCORR_SHIFT, CROSSCORR_ITER)
 
 print "\nProcessing parameters:"
 print "- dir of miniseed data: " + MSEED_DIR
@@ -198,13 +204,13 @@ stations = psstation.get_stations(mseed_dir=MSEED_DIR,
 xc = pscrosscorr.CrossCorrelationCollection()
 
 # Loop on timeslice
-nslice = int((LASTDAY - FIRSTDAY) / CROSSCORR_TMAX)
-slicetimes = [UTCDateTime(FIRSTDAY) + i * CROSSCORR_TMAX for i in range(nslice)]
+nslice = int((LASTDAY - FIRSTDAY) / CROSSCORR_ITER)
+slicetimes = [UTCDateTime(FIRSTDAY) + i * CROSSCORR_ITER for i in range(nslice)]
 
 for slicetime in slicetimes:
     # exporting the collection of cross-correlations after the end of each
     # processed month (allows to restart after a crash from that date)
-    if (slicetime - CROSSCORR_TMAX).month + 1 == slicetime.month:
+    if (slicetime - CROSSCORR_ITER).month + 1 == slicetime.month:
         with open(u'{}.part.pickle'.format(OUTFILESPATH), 'wb') as f:
             print("\nExporting cross-correlations calculated until now to: " + f.name)
             pickle.dump(xc, f, protocol=2)
@@ -231,7 +237,8 @@ for slicetime in slicetimes:
         """
         try:
             trace = pscrosscorr.get_merged_trace(station=station,
-                                                 slicetime=slicetime,
+                                                 starttime=slicetime,
+                                                 endtime=slicetime+CROSSCORR_WINDOW,
                                                  skiplocs=CROSSCORR_SKIPLOCS,
                                                  minfill=MINFILL)
             errmsg = None
@@ -390,7 +397,7 @@ for slicetime in slicetimes:
             """
             (s1, tr1), (s2, tr2) = pair
             print '{}-{} '.format(s1, s2),
-            shift = int(CROSSCORR_TMAX / PERIOD_RESAMPLE)
+            shift = int(CROSSCORR_SHIFT / PERIOD_RESAMPLE)
             xcorr = obspy.signal.cross_correlation.correlate(
                 tr1, tr2, shift=shift)
             return xcorr
@@ -406,7 +413,7 @@ for slicetime in slicetimes:
     print "Stacking cross-correlations"
     xc.add(tracedict=tracedict,
            stations=stations,
-           xcorr_tmax=CROSSCORR_TMAX,
+           xcorr_tmax=CROSSCORR_SHIFT,
            xcorrdict=xcorrdict,
            verbose=not MULTIPROCESSING['cross-corr'])
 
@@ -424,7 +431,7 @@ else:
     print "Exporting cross-correlations to file: {}.png".format(OUTFILESPATH)
     # optimizing time-scale: max time = max distance / vmin (vmin = 2.5 km/s)
     maxdist = max([xc[s1][s2].dist() for s1, s2 in xc.pairs()])
-    maxt = min(CROSSCORR_TMAX, maxdist / 2.5)
+    maxt = min(CROSSCORR_SHIFT, maxdist / 2.5)
     xc.plot(xlim=(-maxt, maxt), outfile=OUTFILESPATH + '.png', showplot=False)
 
 # removing file containing periodical exports of cross-corrs
