@@ -399,7 +399,7 @@ for slicetime in slicetimes:
             print '{}-{} '.format(s1, s2),
             shift = int(CROSSCORR_SHIFT / PERIOD_RESAMPLE)
             xcorr = obspy.signal.cross_correlation.correlate(
-                tr1, tr2, shift=shift)
+                tr1, tr2, shift=shift, demean=False, normalize=None)
             return xcorr
 
         pairs = list(it.combinations(sorted(tracedict.items()), 2))
