@@ -1729,7 +1729,7 @@ class CrossCorrelationCollection(AttribDict):
         elif plot_type == 'distance':
             maxdist = max(self[x][y].dist() for (x, y) in pairs)
             corr2km = maxdist / 30.0
-            cc = mpl.rcParams['axes.color_cycle']  # color cycle
+            cc = mpl.rcParams['axes.prop_cycle']  # color cycle
 
             # sorting pairs by distance
             pairs.sort(key=lambda (s1, s2): self[s1][s2].dist())
@@ -1742,7 +1742,7 @@ class CrossCorrelationCollection(AttribDict):
                     xcplot = xcplot.whiten(inplace=False)
 
                 # color
-                color = cc[ipair % len(cc)]
+                color = cc.by_key()['color'][ipair % len(cc)]
 
                 # normalizing factor
                 nrm = max(abs(xcplot.dataarray)) if norm else 1.0
@@ -1786,7 +1786,7 @@ class CrossCorrelationCollection(AttribDict):
                              t1=xcplot.starttime.strftime('%d/%m/%y'),
                              t2=xcplot.endtime.strftime('%d/%m/%y'))
 
-                bbox = {'color': color, 'facecolor': 'white', 'alpha': 0.9}
+                bbox = {'color': color, 'alpha': 0.9}
                 arrowprops = {'arrowstyle': "-", 'relpos': relpos, 'color': color}
 
                 plt.annotate(s=s, xy=xyarrow, xytext=xytext, fontsize=9,
@@ -1854,13 +1854,14 @@ class CrossCorrelationCollection(AttribDict):
         minperiod = min(periodarray)
 
         # color cycle
-        cc = mpl.rcParams['axes.color_cycle']
+        cc = mpl.rcParams['axes.prop_cycle']
 
         # plotting SNR arrays
         plt.figure()
         for ipair, ((s1, s2), SNRarray) in enumerate(SNRarrays.items()):
             xc = self[s1][s2]
-            color = cc[ipair % len(cc)]
+            #color = cc[ipair % len(cc)]
+            color = cc.by_key()['color'][ipair % len(cc)]
 
             # SNR vs period
             plt.plot(periodarray, SNRarray, color=color)
