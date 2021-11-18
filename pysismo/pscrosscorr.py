@@ -2299,9 +2299,9 @@ def get_merged_trace(station, starttime, endtime, skiplocs=CROSSCORR_SKIPLOCS, m
               starttime=tstart,
               endtime=tend)
 
-    # removing traces with length < CROSSCORR_WINDOW. Expected at the edge of stream.
-    for tr in [tr for tr in st if tr.stats.endtime - tr.stats.starttime < CROSSCORR_WINDOW]:
-        st.remove(tr)
+    # # removing traces with length < CROSSCORR_WINDOW. Expected at the edge of stream.
+    # for tr in [tr for tr in st if tr.stats.endtime - tr.stats.starttime < CROSSCORR_WINDOW]:
+    #     st.remove(tr)
 
     # removing traces of stream from locations to skip
     for tr in [tr for tr in st if tr.stats.location in skiplocs]:
@@ -2380,7 +2380,9 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
                      corners=CORNERS, zerophase=ZEROPHASE,
                      period_resample=PERIOD_RESAMPLE,
                      onebit_norm=ONEBIT_NORM,
-                     window_time=WINDOW_TIME, window_freq=WINDOW_FREQ):
+                     window_time=WINDOW_TIME, window_freq=WINDOW_FREQ,
+                     starttime=None,
+                     endtime=None):
     """
     Preprocesses a trace (so that it is ready to be cross-correlated),
     by applying the following steps:
@@ -2422,6 +2424,10 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
     # Removing instrument response, mean and trend
     # ============================================
 
+    # demean and detrend before preprocessing - quick patch, may need revision !!
+    trace.detrend(type='constant')
+    trace.detrend(type='linear')
+
     # removing response...
     if paz:
         # ...using paz:
@@ -2443,10 +2449,15 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
                      freqmax=freqmax,
                      corners=corners,
                      zerophase=zerophase)
+        #psutils.resample(trace, dt_resample=period_resample)
+        # trace.detrend(type='constant')
+        # trace.detrend(type='linear')
+        #trace.remove_response(output="VEL", zero_mean=True)
         psutils.resample(trace, dt_resample=period_resample)
         trace.remove_response(output="VEL", zero_mean=True)
 
     # demeaning, detrending
+    #trace.detrend(type='spline', order=3, dspline= 2 * period_resample / freqmin)
     trace.detrend(type='constant')
     trace.detrend(type='linear')
 
@@ -2528,6 +2539,11 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
     # Verifying that we don't have nan in trace data
     if np.any(np.isnan(trace.data)):
         raise pserrors.CannotPreprocess("Got NaN in trace data")
+
+
+    # zero pad to starttime and endtime to prevent xcorr miss-alignment
+    trace.trim(starttime=starttime, endtime=endtime, pad=True, fill_value=0)
+    None
 
 
 def load_pickled_xcorr(pickle_file):

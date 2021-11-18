@@ -284,7 +284,9 @@ for slicetime in slicetimes:
                 period_resample=PERIOD_RESAMPLE,
                 onebit_norm=ONEBIT_NORM,
                 window_time=WINDOW_TIME,
-                window_freq=WINDOW_FREQ)
+                window_freq=WINDOW_FREQ,
+                starttime=slicetime,
+                endtime=slicetime+CROSSCORR_WINDOW)
             msg = 'ok'
         except pserrors.CannotPreprocess as err:
             # cannot preprocess if no instrument response was found,
