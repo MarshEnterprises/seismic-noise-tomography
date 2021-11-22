@@ -126,7 +126,7 @@ from pysismo.psconfig import (
     USE_DATALESSPAZ, USE_STATIONXML, CROSSCORR_STATIONS_SUBSET, CROSSCORR_SKIPLOCS,
     FIRSTDAY, LASTDAY, MINFILL, FREQMIN, FREQMAX, CORNERS, ZEROPHASE, PERIOD_RESAMPLE,
     ONEBIT_NORM, FREQMIN_EARTHQUAKE, FREQMAX_EARTHQUAKE, WINDOW_TIME, WINDOW_FREQ,
-    CROSSCORR_WINDOW, CROSSCORR_SHIFT, CROSSCORR_ITER)
+    CROSSCORR_WINDOW, CROSSCORR_SHIFT, CROSSCORR_ITER, CROSSCORR_BUF)
 
 print "\nProcessing parameters:"
 print "- dir of miniseed data: " + MSEED_DIR
@@ -237,8 +237,8 @@ for slicetime in slicetimes:
         """
         try:
             trace = pscrosscorr.get_merged_trace(station=station,
-                                                 starttime=slicetime,
-                                                 endtime=slicetime+CROSSCORR_WINDOW,
+                                                 starttime=slicetime - CROSSCORR_BUF,
+                                                 endtime=slicetime+CROSSCORR_WINDOW + CROSSCORR_BUF,
                                                  skiplocs=CROSSCORR_SKIPLOCS,
                                                  minfill=MINFILL)
             errmsg = None
@@ -284,9 +284,11 @@ for slicetime in slicetimes:
                 period_resample=PERIOD_RESAMPLE,
                 onebit_norm=ONEBIT_NORM,
                 window_time=WINDOW_TIME,
-                window_freq=WINDOW_FREQ,
-                starttime=slicetime,
-                endtime=slicetime+CROSSCORR_WINDOW)
+                window_freq=WINDOW_FREQ)
+
+            # trim edges to remove edge effects
+            trace.trim(starttime=trace.stats.starttime + CROSSCORR_BUF, endtime=trace.stats.endtime - CROSSCORR_BUF,
+                       pad=True, fill_value=0)
             msg = 'ok'
         except pserrors.CannotPreprocess as err:
             # cannot preprocess if no instrument response was found,

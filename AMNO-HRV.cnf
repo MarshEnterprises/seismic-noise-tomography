@@ -148,7 +148,7 @@ USE_STATIONXML = True
 # format yyyy/m/dThh:mm:ss
 #FIRSTDAY = 2015/1/1
 #LASTDAY = 2015/7/1
-FIRSTDAY = 2014/12/25/T23:30
+FIRSTDAY = 2015/1/1
 LASTDAY = 2015/7/1
 MINFILL = 0.2                     
 

@@ -147,6 +147,8 @@ CROSSCORR_SHIFT = config.getfloat('cross-correlation', 'CROSSCORR_SHIFT')
 # time increment (s) added to get the start of the next cross-correlation window.
 CROSSCORR_ITER = config.getfloat('cross-correlation', 'CROSSCORR_ITER')
 
+# buffer in s to add before and remove after preprocessing trace.
+CROSSCORR_BUF = config.getfloat('cross-correlation', 'CROSSCORR_BUF')
 
 # ---------------
 # FTAN parameters

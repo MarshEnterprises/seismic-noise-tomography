@@ -2272,7 +2272,6 @@ class CrossCorrelationCollection(AttribDict):
 def get_merged_trace(station, starttime, endtime, skiplocs=CROSSCORR_SKIPLOCS, minfill=MINFILL):
     """
     Returns one trace extracted from selected station, at selected time slice
-    (+/- half of the time slice on either side required for cross correlation).
 
     Traces whose location belongs to *skiplocs* are discarded, then
     if several locations remain, only the first is kept. Finally,
@@ -2298,10 +2297,6 @@ def get_merged_trace(station, starttime, endtime, skiplocs=CROSSCORR_SKIPLOCS, m
     st = read(pathname_or_url=station.getpath(tstart),
               starttime=tstart,
               endtime=tend)
-
-    # # removing traces with length < CROSSCORR_WINDOW. Expected at the edge of stream.
-    # for tr in [tr for tr in st if tr.stats.endtime - tr.stats.starttime < CROSSCORR_WINDOW]:
-    #     st.remove(tr)
 
     # removing traces of stream from locations to skip
     for tr in [tr for tr in st if tr.stats.location in skiplocs]:
@@ -2380,9 +2375,7 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
                      corners=CORNERS, zerophase=ZEROPHASE,
                      period_resample=PERIOD_RESAMPLE,
                      onebit_norm=ONEBIT_NORM,
-                     window_time=WINDOW_TIME, window_freq=WINDOW_FREQ,
-                     starttime=None,
-                     endtime=None):
+                     window_time=WINDOW_TIME, window_freq=WINDOW_FREQ):
     """
     Preprocesses a trace (so that it is ready to be cross-correlated),
     by applying the following steps:
@@ -2425,8 +2418,8 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
     # ============================================
 
     # demean and detrend before preprocessing - quick patch, may need revision !!
-    trace.detrend(type='constant')
-    trace.detrend(type='linear')
+    # trace.detrend(type='constant')
+    # trace.detrend(type='linear')
 
     # removing response...
     if paz:
@@ -2444,17 +2437,17 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
         # ...using StationXML:
         # first band-pass to downsample data before removing response
         # (else remove_response() method is slow or even hangs)
-        trace.filter(type="bandpass",
-                     freqmin=freqmin,
-                     freqmax=freqmax,
-                     corners=corners,
-                     zerophase=zerophase)
+        # trace.filter(type="bandpass",
+        #              freqmin=freqmin,
+        #              freqmax=freqmax,
+        #              corners=corners,
+        #              zerophase=zerophase)
         #psutils.resample(trace, dt_resample=period_resample)
         # trace.detrend(type='constant')
         # trace.detrend(type='linear')
-        #trace.remove_response(output="VEL", zero_mean=True)
-        psutils.resample(trace, dt_resample=period_resample)
         trace.remove_response(output="VEL", zero_mean=True)
+        psutils.resample(trace, dt_resample=period_resample)
+        # trace.remove_response(output="VEL", zero_mean=True)
 
     # demeaning, detrending
     #trace.detrend(type='spline', order=3, dspline= 2 * period_resample / freqmin)
@@ -2541,9 +2534,6 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
         raise pserrors.CannotPreprocess("Got NaN in trace data")
 
 
-    # zero pad to starttime and endtime to prevent xcorr miss-alignment
-    trace.trim(starttime=starttime, endtime=endtime, pad=True, fill_value=0)
-    None
 
 
 def load_pickled_xcorr(pickle_file):
