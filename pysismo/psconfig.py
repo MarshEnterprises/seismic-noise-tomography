@@ -150,6 +150,10 @@ CROSSCORR_ITER = config.getfloat('cross-correlation', 'CROSSCORR_ITER')
 # buffer in s to add before and remove after preprocessing trace.
 CROSSCORR_BUF = config.getfloat('cross-correlation', 'CROSSCORR_BUF')
 
+# length of control periods (s) over which control cross correlations are stacked
+# to provide control dispersion curves for an evaluation of repeatability
+CONTROL_PERIOD_LENGTH = config.getfloat('cross-correlation', 'CONTROL_PERIOD_LENGTH')
+
 # ---------------
 # FTAN parameters
 # ---------------
@@ -231,7 +235,7 @@ MINSPECTSNR_NOSDEV = config.getfloat('tomography', 'MINSPECTSNR_NOSDEV')
 # max sdt dev (km/s) to retain velocity
 MAXSDEV = config.getfloat('tomography', 'MAXSDEV')
 # min nb of trimesters to estimate std dev
-MINNBTRIMESTER = config.getint('tomography', 'MINNBTRIMESTER')
+MINNBCONTROLPERIODS = config.getint('tomography', 'MINNBCONTROLPERIODS')
 # max period = *MAXPERIOD_FACTOR* * pair distance
 MAXPERIOD_FACTOR = config.getfloat('tomography', 'MAXPERIOD_FACTOR')
 

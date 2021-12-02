@@ -26,7 +26,7 @@ from inspect import getargspec
 # ====================================================
 from psconfig import (
     SIGNAL_WINDOW_VMIN, SIGNAL_WINDOW_VMAX, SIGNAL2NOISE_TRAIL, NOISE_WINDOW_SIZE,
-    MINSPECTSNR, MINSPECTSNR_NOSDEV, MAXSDEV, MINNBTRIMESTER, MAXPERIOD_FACTOR,
+    MINSPECTSNR, MINSPECTSNR_NOSDEV, MAXSDEV, MINNBCONTROLPERIODS, MAXPERIOD_FACTOR,
     LONSTEP, LATSTEP, CORRELATION_LENGTH, ALPHA, BETA, LAMBDA,
     FTAN_ALPHA, FTAN_VELOCITIES_STEP, PERIOD_RESAMPLE)
 
@@ -92,7 +92,7 @@ class DispersionCurve:
                  minspectSNR=MINSPECTSNR,
                  minspectSNR_nosdev=MINSPECTSNR_NOSDEV,
                  maxsdev=MAXSDEV,
-                 minnbtrimester=MINNBTRIMESTER,
+                 minnbcontrol_period=MINNBCONTROLPERIODS,
                  maxperiodfactor=MAXPERIOD_FACTOR,
                  nom2inst_periods=None):
         """
@@ -118,8 +118,8 @@ class DispersionCurve:
         # SNRs along periods
         self._SNRs = None
         # trimester velocities and SNRs
-        self.v_trimesters = {}
-        self._SNRs_trimesters = {}
+        self.v_control_periods = {}
+        self._SNRs_control_periods = {}
 
         # stations
         self.station1 = station1
@@ -129,7 +129,7 @@ class DispersionCurve:
         self.minspectSNR = minspectSNR
         self.minspectSNR_nosdev = minspectSNR_nosdev
         self.maxsdev = maxsdev
-        self.minnbtrimester = minnbtrimester
+        self.minnbcontrol_period = minnbcontrol_period
         self.maxperiodfactor = maxperiodfactor
 
         # list of (nominal period, instantaneous period)
@@ -150,7 +150,7 @@ class DispersionCurve:
         return iperiod
 
     def update_parameters(self, minspectSNR=None, minspectSNR_nosdev=None,
-                          maxsdev=None, minnbtrimester=None, maxperiodfactor=None):
+                          maxsdev=None, minnbcontrol_period=None, maxperiodfactor=None):
         """
         Updating one or more filtering parameter(s)
         """
@@ -160,8 +160,8 @@ class DispersionCurve:
             self.minspectSNR_nosdev = minspectSNR_nosdev
         if not maxsdev is None:
             self.maxsdev = maxsdev
-        if not minnbtrimester is None:
-            self.minnbtrimester = minnbtrimester
+        if not minnbcontrol_period is None:
+            self.minnbcontrol_period = minnbcontrol_period
         if not maxperiodfactor is None:
             self.maxperiodfactor = maxperiodfactor
 
@@ -171,24 +171,24 @@ class DispersionCurve:
         """
         return self.station1.dist(self.station2)
 
-    def add_trimester(self, trimester_start, curve_trimester):
+    def add_control_period(self, control_period_start, curve_control_period):
         """
         Adding a trimester dispersion curve.
 
         @type trimester_start: int
         @type curve_trimester: L{DispersionCurve}
         """
-        if trimester_start in self.v_trimesters:
-            raise Exception('Trimester already added')
+        if control_period_start in self.v_control_periods:
+            raise Exception('Control period already added')
 
-        if np.any(curve_trimester.periods != self.periods):
-            raise Exception("Wrong periods for trimester curve")
+        if np.any(curve_control_period.periods != self.periods):
+            raise Exception("Wrong periods for control period curve")
 
         # adding velocity adn SNR arrays of trimester
-        self.v_trimesters[trimester_start] = curve_trimester.v
-        self._SNRs_trimesters[trimester_start] = curve_trimester._SNRs
+        self.v_control_periods[control_period_start] = curve_control_period.v
+        self._SNRs_control_periods[control_period_start] = curve_control_period._SNRs
 
-    def add_SNRs(self, xc, filter_alpha=FTAN_ALPHA, months=None,
+    def add_SNRs(self, xc, filter_alpha=FTAN_ALPHA, control_periods=None,
                  vmin=SIGNAL_WINDOW_VMIN,
                  vmax=SIGNAL_WINDOW_VMAX,
                  signal2noise_trail=SIGNAL2NOISE_TRAIL,
@@ -208,7 +208,7 @@ class DispersionCurve:
         """
         centerperiods_and_alpha = zip(self.periods, [filter_alpha] * len(self.periods))
         SNRs = xc.SNR(centerperiods_and_alpha=centerperiods_and_alpha,
-                      months=months, vmin=vmin, vmax=vmax,
+                      control_periods=control_periods, vmin=vmin, vmax=vmax,
                       signal2noise_trail=signal2noise_trail,
                       noise_window_size=noise_window_size)
 
@@ -242,14 +242,14 @@ class DispersionCurve:
         @rtype: L{numpy.ndarray}
         """
         # list of arrays of trimester velocities
-        trimester_vels = self.filtered_trimester_vels()
+        control_period_vels = self.filtered_control_period_vels()
 
         sdevs = []
-        for v_across_trimesters in zip(*trimester_vels):
-            # filtering out nans from trimester velocities
-            v_across_trimesters = [v for v in v_across_trimesters if not np.isnan(v)]
-            if len(v_across_trimesters) >= self.minnbtrimester:
-                sdev = np.std(v_across_trimesters)
+        for v_across_control_periods in zip(*control_period_vels):
+            # filtering out nans from control period velocities
+            v_across_control_periods = [v for v in v_across_control_periods if not np.isnan(v)]
+            if len(v_across_control_periods) >= self.minnbcontrol_period:
+                sdev = np.std(v_across_control_periods)
             else:
                 # not enough trimester velocities to estimate std dev
                 sdev = np.nan
@@ -318,12 +318,12 @@ class DispersionCurve:
         vels, sdevs = self.filtered_vels_sdevs()
         return vels[iperiod], sdevs[iperiod], self._SNRs[iperiod]
 
-    def filtered_trimester_vels(self):
+    def filtered_control_period_vels(self):
         """
-        Returns list of arrays of trimester velocities, or nan.
+        Returns list of arrays of control period velocities, or nan.
 
         Selection criteria:
-        - SNR of trimester velocity defined and >= minspectSNR
+        - SNR of control period velocity defined and >= minspectSNR
         - period <= pair distance * *maxperiodfactor*
 
         @rtype: list of L{numpy.ndarray}
@@ -332,8 +332,8 @@ class DispersionCurve:
         dist = self.station1.dist(self.station2)
         periodmask = self.periods <= self.maxperiodfactor * dist
         varrays = []
-        for trimester_start, vels in self.v_trimesters.items():
-            SNRs = self._SNRs_trimesters.get(trimester_start)
+        for control_period_start, vels in self.v_control_periods.items():
+            SNRs = self._SNRs_control_periods.get(control_period_start)
             if SNRs is None:
                 raise Exception("Spectral SNRs not defined")
             # filtering criterion: SNR >= minspectSNR

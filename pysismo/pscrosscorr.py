@@ -44,7 +44,8 @@ from psconfig import (
     SIGNAL_WINDOW_VMIN, SIGNAL_WINDOW_VMAX, SIGNAL2NOISE_TRAIL, NOISE_WINDOW_SIZE,
     RAWFTAN_PERIODS, CLEANFTAN_PERIODS, FTAN_VELOCITIES, FTAN_ALPHA, STRENGTH_SMOOTHING,
     USE_INSTANTANEOUS_FREQ, MAX_RELDIFF_INST_NOMINAL_PERIOD, MIN_INST_PERIOD,
-    HALFWINDOW_MEDIAN_PERIOD, MAX_RELDIFF_INST_MEDIAN_PERIOD, BBOX_LARGE, BBOX_SMALL)
+    HALFWINDOW_MEDIAN_PERIOD, MAX_RELDIFF_INST_MEDIAN_PERIOD, BBOX_LARGE, BBOX_SMALL,
+    CONTROL_PERIOD_LENGTH)
 
 # ========================
 # Constants and parameters
@@ -107,17 +108,19 @@ class MonthYear:
         return hash(self.m) ^ hash(self.y)
 
 
-class MonthCrossCorrelation:
+class ControlCrossCorrelation:
     """
-    Class holding cross-correlation over a single month
+    Class holding cross-correlation over a subset control period
     """
-    def __init__(self, month, ndata):
+    def __init__(self, control_period, control_period_length, ndata):
         """
-        @type month: L{MonthYear}
+        @type control_period: int
+        @type control_period_length: int
         @type ndata: int
         """
-        # attaching month and year
-        self.month = month
+        # attaching control period and control period length (seconds)
+        self.control_period = control_period
+        self.control_period_length = control_period_length
 
         # initializing stats
         self.nslice = 0
@@ -125,15 +128,16 @@ class MonthCrossCorrelation:
         # data array of month cross-correlation
         self.dataarray = np.zeros(ndata)
 
-    def monthfill(self):
-        """
-        Returns the relative month fill (between 0-1)
-        """
-        return float(self.nslice) / monthrange(year=self.month.y, month=self.month.m)[1]
+    # def monthfill(self):
+    #     """
+    #     Returns the relative month fill (between 0-1)
+    #     """
+    #     return float(self.nslice) / monthrange(year=self.month.y, month=self.month.m)[1]
 
     def __repr__(self):
-        s = '<cross-correlation over single month {}: {} timeslices>'
-        return s.format(self.month, self.nslice)
+        daylength = int(self.control_period_length / (60 * 60 * 24))
+        s = '<cross-correlation over single {} day control period {}: {} timeslices>'
+        return s.format(daylength, self.control_period, self.nslice)
 
 
 class CrossCorrelation:
@@ -181,7 +185,7 @@ class CrossCorrelation:
         self.whitened = False
 
         # initializing list of cross-correlations over a single month
-        self.monthxcs = []
+        self.controlxcs = []
 
     def __repr__(self):
         s = '<cross-correlation between stations {0}-{1}: avg {2} timeslices>'
@@ -215,7 +219,7 @@ class CrossCorrelation:
         # shallow copy
         result = copy.copy(self)
         # copy of month cross-correlations
-        result.monthxcs = [copy.copy(mxc) for mxc in self.monthxcs]
+        result.controlxcs = [copy.copy(mxc) for mxc in self.controlxcs]
         return result
 
     def add(self, tr1, tr2, xcorr=None):
@@ -252,17 +256,21 @@ class CrossCorrelation:
         self.endtime = max(self.endtime, endtime) if self.endtime else endtime
         self.nslice += 1
 
-        # stacking cross-corr over single month
-        month = MonthYear((tr1.stats.starttime + ONESEC).date)
+        # stacking cross-corr over single control period of length CONTROL_PERIOD_LENGTH
+        control_period_length = CONTROL_PERIOD_LENGTH  * 24 * 60 * 60
+        control_period = int((tr1.stats.starttime + ONESEC - self.starttime) / control_period_length)
+
         try:
-            monthxc = next(monthxc for monthxc in self.monthxcs
-                           if monthxc.month == month)
+            controlxc = next(controlxc for controlxc in self.controlxcs
+                           if controlxc.control_period == control_period)
         except StopIteration:
             # appending new month xc
-            monthxc = MonthCrossCorrelation(month=month, ndata=len(self.timearray))
-            self.monthxcs.append(monthxc)
-        monthxc.dataarray += xcorr
-        monthxc.nslice += 1
+            controlxc = ControlCrossCorrelation(control_period=control_period,
+                                                control_period_length=control_period_length,
+                                                ndata=len(self.timearray))
+            self.controlxcs.append(controlxc)
+        controlxc.dataarray += xcorr
+        controlxc.nslice += 1
 
         # updating (adding) locs and ids
         self.locs1.add(tr1.stats.location)
@@ -297,7 +305,7 @@ class CrossCorrelation:
 
         # calculating symmetric component of cross-correlation
         xcout.timearray = xcout.timearray[mid:]
-        for obj in [xcout] + (xcout.monthxcs if hasattr(xcout, 'monthxcs') else []):
+        for obj in [xcout] + (xcout.controlxcs if hasattr(xcout, 'controlxcs') else []):
             a = obj.dataarray
             obj.dataarray = (a[mid:] + a[mid::-1]) / 2.0
 
@@ -324,7 +332,7 @@ class CrossCorrelation:
         deltaf = sampling_rate / npts
 
         # loop over cross-corr and one-month stacks
-        for obj in [xcout] + (xcout.monthxcs if hasattr(xcout, 'monthxcs') else []):
+        for obj in [xcout] + (xcout.controlxcs if hasattr(xcout, 'controlxcs') else []):
             a = obj.dataarray
             # Fourier transform
             ffta = rfft(a)
@@ -381,7 +389,7 @@ class CrossCorrelation:
 
     def SNR(self, periodbands=None,
             centerperiods_and_alpha=None,
-            whiten=False, months=None,
+            whiten=False, control_periods=None,
             vmin=SIGNAL_WINDOW_VMIN,
             vmax=SIGNAL_WINDOW_VMAX,
             signal2noise_trail=SIGNAL2NOISE_TRAIL,
@@ -432,7 +440,7 @@ class CrossCorrelation:
             xcout = xcout.whiten(inplace=False)
 
         # cross-corr of desired months
-        xcdata = xcout._get_monthyears_xcdataarray(months=months)
+        xcdata = xcout._get_controlperiod_xcdataarray(control_periods=control_periods)
 
         # filter type and associated arguments
         if periodbands:
@@ -478,7 +486,7 @@ class CrossCorrelation:
         return np.array(SNR) if len(SNR) > 1 else np.array(SNR[0])
 
     def plot(self, whiten=False, sym=False, vmin=SIGNAL_WINDOW_VMIN,
-             vmax=SIGNAL_WINDOW_VMAX, months=None):
+             vmax=SIGNAL_WINDOW_VMAX, control_periods=None):
         """
         Plots cross-correlation and its spectrum
         """
@@ -487,7 +495,7 @@ class CrossCorrelation:
             xcout = xcout.whiten(inplace=False)
 
         # cross-corr of desired months
-        xcdata = xcout._get_monthyears_xcdataarray(months=months)
+        xcdata = xcout._get_controlperiod_xcdataarray(control_periods=control_periods)
 
         # cross-correlation plot ===
         plt.figure()
@@ -517,7 +525,7 @@ class CrossCorrelation:
             plt.ylim(ylim)
 
         # title
-        plt.title(xcout._plottitle(months=months))
+        plt.title(xcout._plottitle(control_period=control_periods))
 
         # spectrum plot ===
         plt.subplot(2, 1, 2)
@@ -542,7 +550,7 @@ class CrossCorrelation:
                             vmax=SIGNAL_WINDOW_VMAX,
                             signal2noise_trail=SIGNAL2NOISE_TRAIL,
                             noise_window_size=NOISE_WINDOW_SIZE,
-                            months=None, outfile=None):
+                            control_periods=None, outfile=None):
         """
         Plots cross-correlation for various bands of periods
 
@@ -589,7 +597,7 @@ class CrossCorrelation:
             xcout = xcout.whiten(inplace=False)
 
         # cross-corr of desired months
-        xcdata = xcout._get_monthyears_xcdataarray(months=months)
+        xcdata = xcout._get_controlperiod_xcdataarray(control_periods=control_periods)
 
         # limits of y-axis = min/max of the cross-correlation
         # AFTER the beginning of the signal window
@@ -606,7 +614,7 @@ class CrossCorrelation:
 
         # title
         if plot_title:
-            title = xcout._plottitle(prefix='Cross-corr. ', months=months)
+            title = xcout._plottitle(prefix='Cross-corr. ', control_period=control_periods)
             axlist[0].set_title(title)
 
         # signal window
@@ -718,7 +726,7 @@ class CrossCorrelation:
         if fig:
             fig.show()
 
-    def FTAN(self, whiten=False, phase_corr=None, months=None, vgarray_init=None,
+    def FTAN(self, whiten=False, phase_corr=None, control_periods=None, vgarray_init=None,
              optimize_curve=None, strength_smoothing=STRENGTH_SMOOTHING,
              use_inst_freq=USE_INSTANTANEOUS_FREQ, vg_at_nominal_freq=None,
              debug=False):
@@ -736,8 +744,8 @@ class CrossCorrelation:
         - set *whiten*=True to whiten the spectrum of the cross-corr.
         - provide a function of frequency in *phase_corr* to include a
           phase correction.
-        - provide a list of (int, int) in *months* to restrict the FTAN
-          to a subset of month-year
+        - provide a list of (int) in *control_periods* to restrict the FTAN
+          to a subset of control periods
         - provide an initial guess of dispersion curve (in *vgarray_init*)
           to accelerate the group velocity curve extraction
         - set *optimize_curve*=True to further optimize the dispersion
@@ -791,10 +799,10 @@ class CrossCorrelation:
         if whiten:
             xcout = xcout.whiten(inplace=False)
 
-        # cross-corr of desired months
-        xcdata = xcout._get_monthyears_xcdataarray(months=months)
+        # cross-corr of desired control periods
+        xcdata = xcout._get_controlperiod_xcdataarray(control_periods=control_periods)
         if xcdata is None:
-            raise Exception('No data to perform FTAN in selected months')
+            raise Exception('No data to perform FTAN in selected control periods')
 
         # FTAN analysis: amplitute and phase function of
         # center periods T0 and time t
@@ -938,7 +946,7 @@ class CrossCorrelation:
 
         return ampl_resampled, phase_resampled, vgcurve
 
-    def FTAN_complete(self, whiten=False, months=None, add_SNRs=True,
+    def FTAN_complete(self, whiten=False, control_periods=None, add_SNRs=True,
                       vmin=SIGNAL_WINDOW_VMIN, vmax=SIGNAL_WINDOW_VMAX,
                       signal2noise_trail=SIGNAL2NOISE_TRAIL,
                       noise_window_size=NOISE_WINDOW_SIZE,
@@ -954,8 +962,8 @@ class CrossCorrelation:
         (2) Uses the raw group velocities to calculate the phase corr.
         (3) Performs a FTAN with the phase correction
             ("phase matched filter")
-        (4) Repeats the procedure for all 12 trimesters if no
-            list of months is given
+        (4) Repeats the procedure for all control periods if no
+            list of control periods is given
 
         Optionally, adds spectral SNRs at the periods of the clean
         vg curve. In this case, parameters *vmin*, *vmax*,
@@ -1004,7 +1012,7 @@ class CrossCorrelation:
         rawvg_init = np.zeros_like(RAWFTAN_PERIODS)
         try:
             rawampl, _, rawvg = xc.FTAN(whiten=False,
-                                        months=months,
+                                        control_periods=control_periods,
                                         optimize_curve=optimize_curve,
                                         strength_smoothing=strength_smoothing,
                                         use_inst_freq=use_inst_freq,
@@ -1033,7 +1041,7 @@ class CrossCorrelation:
         try:
             cleanampl, _, cleanvg = xc.FTAN(whiten=False,
                                             phase_corr=phase_corr,
-                                            months=months,
+                                            control_periods=control_periods,
                                             optimize_curve=optimize_curve,
                                             strength_smoothing=strength_smoothing,
                                             use_inst_freq=use_inst_freq,
@@ -1052,65 +1060,66 @@ class CrossCorrelation:
         # adding spectral SNRs associated with the periods of the
         # clean vg curve
         if add_SNRs:
-            cleanvg.add_SNRs(xc, months=months,
+            cleanvg.add_SNRs(xc, control_periods=control_periods,
                              vmin=vmin, vmax=vmax,
                              signal2noise_trail=signal2noise_trail,
                              noise_window_size=noise_window_size)
 
-        if months is None:
+        if control_periods is None:
             # set of available months (without year)
-            available_months = set(mxc.month.m for mxc in xc.monthxcs)
+            available_control_periods = set(cxc.control_period for cxc in xc.controlxcs)
 
             # extracting clean vg curves for all 12 trimesters:
             # Jan-Feb-March, Feb-March-Apr ... Dec-Jan-Feb
-            for trimester_start in range(1, 13):
-                # months of trimester, e.g. [1, 2, 3], [2, 3, 4] ... [12, 1, 2]
-                trimester_months = [(trimester_start + i - 1) % 12 + 1
-                                    for i in range(3)]
-                # do we have data in all months?
-                if any(month not in available_months for month in trimester_months):
-                    continue
-                # list of month-year whose month belong to current trimester
-                months_of_xc = [mxc.month for mxc in xc.monthxcs
-                                if mxc.month.m in trimester_months]
+            for control_period in available_control_periods:
+            # for trimester_start in range(1, 13):
+            #     # months of trimester, e.g. [1, 2, 3], [2, 3, 4] ... [12, 1, 2]
+            #     trimester_months = [(trimester_start + i - 1) % 12 + 1
+            #                         for i in range(3)]
+            #     # do we have data in all months?
+            #     if any(month not in available_months for month in trimester_months):
+            #         continue
+            #     # list of month-year whose month belong to current trimester
+            #     months_of_xc = [mxc.month for mxc in xc.monthxcs
+            #                     if mxc.month.m in trimester_months]
 
                 # raw-clean FTAN on trimester data, using the vg curve
                 # extracted from all data as initial guess
                 try:
-                    _, _, rawvg_trimester = xc.FTAN(
+                    _, _, rawvg_control_period = xc.FTAN(
                         whiten=False,
-                        months=months_of_xc,
+                        control_periods=[control_period],
                         vgarray_init=rawvg_init,
                         optimize_curve=optimize_curve,
                         strength_smoothing=strength_smoothing,
                         use_inst_freq=use_inst_freq,
                         **kwargs)
 
-                    phase_corr_trimester = xc.phase_func(vgcurve=rawvg_trimester)
+                    phase_corr_control_period = xc.phase_func(vgcurve=rawvg_control_period)
 
-                    _, _, cleanvg_trimester = xc.FTAN(
+                    _, _, cleanvg_control_period = xc.FTAN(
                         whiten=False,
-                        phase_corr=phase_corr_trimester,
-                        months=months_of_xc,
+                        phase_corr=phase_corr_control_period,
+                        control_periods=[control_period],
                         vgarray_init=cleanvg_init,
                         optimize_curve=optimize_curve,
                         strength_smoothing=strength_smoothing,
                         use_inst_freq=use_inst_freq,
                         **kwargs)
                 except pserrors.CannotCalculateInstFreq:
-                    # skipping trimester in case of pb with instantenous frequency
+                    # skipping control period in case of pb with instantaneous frequency
                     continue
 
                 # adding spectral SNRs associated with the periods of the
-                # clean trimester vg curve
+                # clean control period vg curve
                 if add_SNRs:
-                    cleanvg_trimester.add_SNRs(xc, months=months_of_xc,
+                    cleanvg_control_period.add_SNRs(xc, control_periods=[control_period],
                                                vmin=vmin, vmax=vmax,
                                                signal2noise_trail=signal2noise_trail,
                                                noise_window_size=noise_window_size)
 
-                # adding trimester vg curve
-                cleanvg.add_trimester(trimester_start, cleanvg_trimester)
+                # adding control period vg curve
+                cleanvg.add_control_period(control_period, cleanvg_control_period)
 
         return rawampl, rawvg, cleanampl, cleanvg
 
@@ -1144,7 +1153,7 @@ class CrossCorrelation:
         return interp1d(x=freqarray[mask], y=phi)
 
     def plot_FTAN(self, rawampl=None, rawvg=None, cleanampl=None, cleanvg=None,
-                  whiten=False, months=None, showplot=True, normalize_ampl=True,
+                  whiten=False, control_periods=None, showplot=True, normalize_ampl=True,
                   logscale=True, bbox=BBOX_SMALL, figsize=(16, 5), outfile=None,
                   vmin=SIGNAL_WINDOW_VMIN, vmax=SIGNAL_WINDOW_VMAX,
                   signal2noise_trail=SIGNAL2NOISE_TRAIL,
@@ -1166,7 +1175,7 @@ class CrossCorrelation:
         - 3rd panel shows the same image, but for the clean FTAN (wherein the
           phase of the cross-correlation is corrected thanks to the raw
           dispersion curve). Also shown are the clean dispersion curve,
-          the 3-month dispersion curves, the standard deviation of the
+          the control-period dispersion curves, the standard deviation of the
           group velocity calculated from these 3-month dispersion curves
           and the SNR function of period.
           Only the velocities passing the default selection criteria
@@ -1218,7 +1227,7 @@ class CrossCorrelation:
         # performing FTAN analysis if needed
         if any(obj is None for obj in [rawampl, rawvg, cleanampl, cleanvg]):
             rawampl, rawvg, cleanampl, cleanvg = self.FTAN_complete(
-                whiten=whiten, months=months, add_SNRs=True,
+                whiten=whiten, control_periods=control_periods, add_SNRs=True,
                 vmin=vmin, vmax=vmax,
                 signal2noise_trail=signal2noise_trail,
                 noise_window_size=noise_window_size,
@@ -1242,7 +1251,7 @@ class CrossCorrelation:
         gs1 = gridspec.GridSpec(len(PERIOD_BANDS) + 1, 1, wspace=0.0, hspace=0.0)
         axlist = [fig.add_subplot(ss) for ss in gs1]
         self.plot_by_period_band(axlist=axlist, plot_title=False,
-                                 whiten=whiten, months=months,
+                                 whiten=whiten, control_periods=control_periods,
                                  vmin=vmin, vmax=vmax,
                                  signal2noise_trail=signal2noise_trail,
                                  noise_window_size=noise_window_size)
@@ -1320,10 +1329,10 @@ class CrossCorrelation:
             tl.set_color('green')
 
         # trimester vg curves
-        ntrimester = len(cleanvg.v_trimesters)
-        for i, vg_trimester in enumerate(cleanvg.filtered_trimester_vels()):
-            label = '3-month disp curves (n={})'.format(ntrimester) if i == 0 else None
-            ax.plot(cleanvg.periods, vg_trimester, color='gray', label=label)
+        ncontrol_period = len(cleanvg.v_control_periods)
+        for i, vg_control_period in enumerate(cleanvg.filtered_control_period_vels()):
+            label = '{} day disp curves (n={})'.format(str(int(CONTROL_PERIOD_LENGTH)), ncontrol_period) if i == 0 else None
+            ax.plot(cleanvg.periods, vg_control_period, color='gray', label=label)
 
         # clean vg curve + error bars
         vels, sdevs = cleanvg.filtered_vels_sdevs()
@@ -1400,7 +1409,7 @@ class CrossCorrelation:
         gs5.update(left=0.87, right=0.98, top=0.48)
 
         # figure title, e.g., 'BL.GNSB-IU.RCBR, dist=1781 km, nslices=208'
-        title = self._FTANplot_title(months=months)
+        title = self._FTANplot_title(control_period=control_periods)
         fig.suptitle(title, fontsize=14)
 
         # exporting to file
@@ -1411,34 +1420,34 @@ class CrossCorrelation:
             plt.show()
         return fig
 
-    def _plottitle(self, prefix='', months=None):
+    def _plottitle(self, prefix='', control_period=None):
         """
         E.g., 'SPB-ITAB (365 timeslices from 2002-01-01 to 2002-12-01)'
            or 'SPB-ITAB (90 timeslices in months 01-2002, 02-2002)'
         """
         s = '{pref}{sta1}-{sta2} '
         s = s.format(pref=prefix, sta1=self.station1.name, sta2=self.station2.name)
-        if not months:
+        if not control_period:
             nslice = self.nslice
             s += '({} timeslices from {} to {})'.format(
                 nslice, self.starttime.strftime('%d/%m/%Y'),
                 self.endtime.strftime('%d/%m/%Y'))
         else:
-            monthxcs = [mxc for mxc in self.monthxcs if mxc.month in months]
-            nslice = sum(monthxc.nslice for monthxc in monthxcs)
-            strmonths = ', '.join(str(m.month) for m in monthxcs)
+            controlxcs = [cxc for cxc in self.controlxcs if cxc.control_period in control_period]
+            nslice = sum(controlxcs.nslice for controlxcs in controlxcs)
+            strmonths = ', '.join(str(c) for c in controlxcs)
             s += '{} timeslices in months {}'.format(nslice, strmonths)
         return s
 
-    def _FTANplot_title(self, months=None):
+    def _FTANplot_title(self, control_period=None):
         """
         E.g., 'BL.GNSB-IU.RCBR, dist=1781 km, nslices=208'
         """
-        if not months:
+        if not control_period:
             nslice = self.nslice
         else:
-            nslice = sum(monthxc.nslice for monthxc in self.monthxcs
-                       if monthxc.month in months)
+            nslice = sum(controlxc.nslice for controlxc in self.controlxcs
+                       if controlxc.control_period in control_period)
         title = u"{}-{}, dist={:.0f} km, nslices={}"
         title = title.format(self.station1.network + '.' + self.station1.name,
                              self.station2.network + '.' + self.station2.name,
@@ -1463,21 +1472,21 @@ class CrossCorrelation:
         nt = len(self.timearray)
         return (nt - 1) / 2 if not self.symmetrized else nt - 1
 
-    def _get_monthyears_xcdataarray(self, months=None):
+    def _get_controlperiod_xcdataarray(self, control_periods=None):
         """
         Returns the sum of cross-corr data arrays of given
-        list of (month,year) -- or the whole cross-corr if
-        monthyears is None.
+        list of (control_period) -- or the whole cross-corr if
+        control_periods is None.
 
-        @type months: list of (L{MonthYear} or (int, int))
+        @type control_periods: list of (int)
         @rtype: L{numpy.ndarray}
         """
-        if not months:
+        if not control_periods:
             return self.dataarray
         else:
-            monthxcs = [mxc for mxc in self.monthxcs if mxc.month in months]
-            if monthxcs:
-                return sum(monthxc.dataarray for monthxc in monthxcs)
+            controlxcs = [cxc for cxc in self.controlxcs if cxc.control_period in control_periods]
+            if controlxcs:
+                return sum(controlxc.dataarray for controlxc in controlxcs)
             else:
                 return None
 
@@ -1967,7 +1976,7 @@ class CrossCorrelationCollection(AttribDict):
 
     def FTANs(self, prefix=None, suffix='', whiten=False,
               normalize_ampl=True, logscale=True, mindist=None,
-              minSNR=None, minspectSNR=None, monthyears=None,
+              minSNR=None, minspectSNR=None, control_periods=None,
               vmin=SIGNAL_WINDOW_VMIN, vmax=SIGNAL_WINDOW_VMAX,
               signal2noise_trail=SIGNAL2NOISE_TRAIL,
               noise_window_size=NOISE_WINDOW_SIZE,
@@ -2008,7 +2017,7 @@ class CrossCorrelationCollection(AttribDict):
         @type mindist: float
         @type minspectSNR: float
         @type whiten: bool
-        @type monthyears: list of (int, int)
+        @type control_periods: list of (int, int)
         """
         # setting default prefix if not given
         if not prefix:
@@ -2021,8 +2030,8 @@ class CrossCorrelationCollection(AttribDict):
                 parts.append('minSNR={}'.format(minSNR))
             if minspectSNR:
                 parts.append('minspectSNR={}'.format(minspectSNR))
-            if monthyears:
-                parts.extend('{:02d}-{}'.format(m, y) for m, y in monthyears)
+            if control_periods:
+                parts.extend('control_period={}'.format(c) for c in control_periods)
         else:
             parts = [prefix]
         if suffix:
@@ -2068,7 +2077,7 @@ class CrossCorrelationCollection(AttribDict):
             try:
                 # complete FTAN analysis
                 rawampl, rawvg, cleanampl, cleanvg = xc.FTAN_complete(
-                    whiten=whiten, months=monthyears,
+                    whiten=whiten, control_periods=control_periods,
                     vmin=vmin, vmax=vmax,
                     signal2noise_trail=signal2noise_trail,
                     noise_window_size=noise_window_size,
@@ -2375,7 +2384,10 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
                      corners=CORNERS, zerophase=ZEROPHASE,
                      period_resample=PERIOD_RESAMPLE,
                      onebit_norm=ONEBIT_NORM,
-                     window_time=WINDOW_TIME, window_freq=WINDOW_FREQ):
+                     window_time=WINDOW_TIME,
+                     window_freq=WINDOW_FREQ,
+                     starttime=None,
+                     endtime=None):
     """
     Preprocesses a trace (so that it is ready to be cross-correlated),
     by applying the following steps:
@@ -2411,6 +2423,8 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
                         in the earthquake band (for the time-normalization)
     @param window_freq: width of the window to calculate the running mean
                         of the amplitude spectrum (for the spectral whitening)
+    @param starttime: UTCDateTime of trace start time
+    @param endttime: UTCDateTime of trace end time
     """
 
     # ============================================
@@ -2533,8 +2547,8 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
     if np.any(np.isnan(trace.data)):
         raise pserrors.CannotPreprocess("Got NaN in trace data")
 
-
-
+    # zero pad to starttime and endtime to prevent xcorr miss-alignment
+    trace.trim(starttime=starttime, endtime=endtime, pad=True, fill_value=0)
 
 def load_pickled_xcorr(pickle_file):
     """

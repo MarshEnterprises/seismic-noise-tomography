@@ -284,7 +284,9 @@ for slicetime in slicetimes:
                 period_resample=PERIOD_RESAMPLE,
                 onebit_norm=ONEBIT_NORM,
                 window_time=WINDOW_TIME,
-                window_freq=WINDOW_FREQ)
+                window_freq=WINDOW_FREQ,
+                starttime=slicetime,
+                endtime=slicetime+CROSSCORR_WINDOW)
 
             # trim edges to remove edge effects
             trace.trim(starttime=trace.stats.starttime + CROSSCORR_BUF, endtime=trace.stats.endtime - CROSSCORR_BUF,
