@@ -27,7 +27,7 @@ from inspect import getargspec
 from psconfig import (
     SIGNAL_WINDOW_VMIN, SIGNAL_WINDOW_VMAX, SIGNAL2NOISE_TRAIL, NOISE_WINDOW_SIZE,
     MINSPECTSNR, MINSPECTSNR_NOSDEV, MAXSDEV, MINNBCONTROLPERIODS, MAXPERIOD_FACTOR,
-    LONSTEP, LATSTEP, CORRELATION_LENGTH, ALPHA, BETA, LAMBDA,
+    LONSTEP, LATSTEP, PADDING, CORRELATION_LENGTH, ALPHA, BETA, LAMBDA,
     FTAN_ALPHA, FTAN_VELOCITIES_STEP, PERIOD_RESAMPLE)
 
 # ========================
@@ -623,6 +623,7 @@ class VelocityMap:
         - maxsdev           : max standard deviation to retain velocity (default MAXSDEV)
         - lonstep           : longitude step of grid (default LONSTEP)
         - latstep           : latitude step of grid (default LATSTEP)
+        - padding           : padding, in degrees, by which to grow plot axes around data (default PADDING)
         - correlation_length: correlation length of the smoothing kernel:
                                 S(r,r') = exp[-|r-r'|**2 / (2 * correlation_length**2)]
                               (default value CORRELATION_LENGTH)
@@ -652,6 +653,7 @@ class VelocityMap:
         maxsdev = kwargs.get('maxsdev', MAXSDEV)
         lonstep = kwargs.get('lonstep', LONSTEP)
         latstep = kwargs.get('latstep', LATSTEP)
+        padding = kwargs.get('padding', PADDING)
         correlation_length = kwargs.get('correlation_length', CORRELATION_LENGTH)
         alpha = kwargs.get('alpha', ALPHA)
         beta = kwargs.get('beta', BETA)
@@ -758,15 +760,15 @@ class VelocityMap:
         self.Cinv = np.matrix(np.zeros((len(sigmav), len(sigmav))))
         np.fill_diagonal(self.Cinv, 1.0 / sigmad**2)
 
-        # spatial grid for tomographic inversion (slightly enlarged to be
-        # sure that no path will fall outside)
+        # spatial grid for tomographic inversion (slightly enlarged by
+        # padding to be sure that no path will fall outside)
         lons1, lats1 = zip(*[c.station1.coord for c in self.disp_curves])
         lons2, lats2 = zip(*[c.station2.coord for c in self.disp_curves])
-        tol = 0.5
-        lonmin = np.floor(min(lons1 + lons2) - tol)
-        nlon = np.ceil((max(lons1 + lons2) + tol - lonmin) / lonstep) + 1
-        latmin = np.floor(min(lats1 + lats2) - tol)
-        nlat = np.ceil((max(lats1 + lats2) + tol - latmin) / latstep) + 1
+
+        lonmin = min(lons1 + lons2) - padding
+        nlon = (max(lons1 + lons2) + padding - lonmin) / lonstep + 1
+        latmin = min(lats1 + lats2) - padding
+        nlat = (max(lats1 + lats2) + padding - latmin) / latstep + 1
         self.grid = Grid(lonmin, lonstep, nlon, latmin, latstep, nlat)
 
         # geodesic paths associated with pairs of stations of dispersion curves

@@ -253,6 +253,9 @@ MAXPERIOD_FACTOR = config.getfloat('tomography', 'MAXPERIOD_FACTOR')
 LONSTEP = config.getfloat('tomography', 'LONSTEP')
 LATSTEP = config.getfloat('tomography', 'LATSTEP')
 
+# Padding in degrees by which to increase grid around data
+PADDING = config.getfloat('tomography', 'PADDING')
+
 # Default correlation length of the smoothing kernel:
 # S(r,r') = exp[-|r-r'|**2 / (2 * correlation_length**2)]
 CORRELATION_LENGTH = config.getfloat('tomography', 'CORRELATION_LENGTH')

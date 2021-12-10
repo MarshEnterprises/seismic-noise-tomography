@@ -68,13 +68,16 @@ from matplotlib.backends.backend_pdf import PdfPages
 import itertools as it
 
 # inversion parameters to vary
-PERIODS = [10.0, 20.0]
-GRID_STEPS = [1.0]
-MINPECTSNRS = [7.0]
-CORR_LENGTHS = [50, 150, 250]
-ALPHAS = [200, 400, 600]
-BETAS = [200]
-LAMBDAS = [0.3]
+# PERIODS = [0.15, 0.3, 0.6]
+# PERIODS = [1, 1.5, 2, 3, 4, 5]
+PERIODS = [1, 1.5, 2, 3, 4, 5, 7, 10, 14]
+GRID_STEPS = [0.025]
+PADDING = [0.1]
+MINPECTSNRS = [7]
+CORR_LENGTHS = [1]
+ALPHAS = [30]
+BETAS = [50]
+LAMBDAS = [0.075]
 
 # parsing configuration file to import dirs
 from pysismo.psconfig import FTAN_DIR, TOMO_DIR
@@ -115,13 +118,13 @@ for pickle_file in pickle_files:
 
     # performing tomographic inversions, systematically
     # varying the inversion parameters
-    param_lists = it.product(PERIODS, GRID_STEPS, MINPECTSNRS, CORR_LENGTHS,
+    param_lists = it.product(PERIODS, GRID_STEPS, PADDING, MINPECTSNRS, CORR_LENGTHS,
                              ALPHAS, BETAS, LAMBDAS)
     param_lists = list(param_lists)
-    for period, grid_step, minspectSNR, corr_length, alpha, beta, lambda_ in param_lists:
-        s = ("Period = {} s, grid step = {}, min SNR = {}, corr. length "
+    for period, grid_step, padding, minspectSNR, corr_length, alpha, beta, lambda_ in param_lists:
+        s = ("Period = {} s, grid step = {}, padding = {}, min SNR = {}, corr. length "
              "= {} km, alpha = {}, beta = {}, lambda = {}")
-        print s.format(period, grid_step, minspectSNR, corr_length, alpha, beta, lambda_)
+        print s.format(period, grid_step, padding, minspectSNR, corr_length, alpha, beta, lambda_)
 
         # Performing the tomographic inversion to produce a velocity map
         # at period = *period* , with parameters given above:
@@ -143,6 +146,7 @@ for pickle_file in pickle_files:
                                verbose=False,
                                lonstep=grid_step,
                                latstep=grid_step,
+                               padding=padding,
                                minspectSNR=minspectSNR,
                                correlation_length=corr_length,
                                alpha=alpha,
