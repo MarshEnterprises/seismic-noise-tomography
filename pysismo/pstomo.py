@@ -648,7 +648,7 @@ class VelocityMap:
         # reading inversion parameters
         minspectSNR = kwargs.get('minspectSNR', MINSPECTSNR)
         minspectSNR_nosdev = kwargs.get('minspectSNR_nosdev', MINSPECTSNR_NOSDEV)
-        minnbtrimester = kwargs.get('minnbtrimester', MINNBTRIMESTER)
+        minnbcontrol_period = kwargs.get('minnbtrimester', MINNBCONTROLPERIODS)
         maxsdev = kwargs.get('maxsdev', MAXSDEV)
         lonstep = kwargs.get('lonstep', LONSTEP)
         latstep = kwargs.get('latstep', LATSTEP)
@@ -688,7 +688,7 @@ class VelocityMap:
         for c in dispersion_curves:
             c.update_parameters(minspectSNR=minspectSNR,
                                 minspectSNR_nosdev=minspectSNR_nosdev,
-                                minnbtrimester=minnbtrimester,
+                                minnbcontrol_period=minnbcontrol_period,
                                 maxsdev=maxsdev)
 
         # valid dispersion curves (velocity != nan at period) and
