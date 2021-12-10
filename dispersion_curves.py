@@ -49,7 +49,7 @@ import glob
 import os
 
 # parsing configuration file to import dir of cross-corr results
-from pysismo.psconfig import CROSSCORR_DIR
+from pysismo.psconfig import CROSSCORR_DIR, DISTMIN, DISTMAX
 
 # loading cross-correlations (looking for *.pickle files in dir *CROSSCORR_DIR*)
 flist = sorted(glob.glob(os.path.join(CROSSCORR_DIR, 'xcorr*.pickle*')))
@@ -98,5 +98,8 @@ for pickle_file in pickle_files:
     # freq (default is given by parameter *USE_INSTANTANEOUS_FREQ*)
     #
     # See other options in the docstring of the function.
+
+    # filter by station distance before FTAN
+    xc = xc.filter_by_distance(dmin=DISTMIN, dmax=DISTMAX)
 
     xc.FTANs(suffix=suffix, whiten=False, normalize_ampl=True, logscale=True)

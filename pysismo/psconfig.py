@@ -158,6 +158,16 @@ CONTROL_PERIOD_LENGTH = config.getfloat('cross-correlation', 'CONTROL_PERIOD_LEN
 # FTAN parameters
 # ---------------
 
+# minimum and maximum inter-station distance (km) required to calculate FTAN
+try:
+    DISTMIN = json.loads(config.get('FTAN', 'DISTMIN'))
+except:
+    DISTMIN = None
+try:
+    DISTMAX = json.loads(config.get('FTAN', 'DISTMAX'))
+except:
+    DISTMAX = None
+
 # default period bands, used to:
 # - plot cross-correlation by period bands, in plot_FTAN(), plot_by_period_bands()
 # - plot spectral SNR, in plot_spectral_SNR()

@@ -1242,6 +1242,7 @@ class CrossCorrelation:
                 a[...] /= a.max()
 
         # preparing figure
+        plt.ioff() # for some reason the figure shows, causing crashes in shell without display
         fig = plt.figure(figsize=figsize)
 
         # =======================================================
@@ -1817,10 +1818,9 @@ class CrossCorrelationCollection(AttribDict):
             fig.savefig(outfile, dpi=dpi)
 
         if showplot:
-            # showing plot
             plt.show()
-
-        plt.close()
+        else:
+            plt.close()
 
     def plot_spectral_SNR(self, whiten=False, minSNR=None, minspectSNR=None,
                           minslice=1, mindist=None, withnets=None, onlywithnets=None,
@@ -2132,6 +2132,40 @@ class CrossCorrelationCollection(AttribDict):
             stations.sort(key=lambda obj: obj.name)
 
         return stations
+
+    def filter_by_distance(self, dmin=None, dmax=None):
+        '''
+        Returns a new CrossCorrelationCollection containing station pairs filtered by distance
+
+        @type dmin: minimum interstation distance (km)
+        @type dmax: maximum interstation distance (km)
+        '''
+
+        xc = self
+        xcr = xc.copy()
+
+        if dmin and dmax:
+            for s1 in xc:
+                for s2 in xc[s1]:
+                    if xc[s1][s2].dist() <= dmin or xc[s1][s2].dist() > dmax:
+                        del(xcr[s1][s2])
+
+        elif not dmin and dmax:
+            for s1 in xc:
+                for s2 in xc[s1]:
+                    if xc[s1][s2].dist() > dmax:
+                        del(xcr[s1][s2])
+
+        elif not dmax and dmin:
+            for s1 in xc:
+                for s2 in xc[s1]:
+                    if xc[s1][s2].dist() <= dmin:
+                        del(xcr[s1][s2])
+
+        else:
+            xcr = xc
+
+        return xcr
 
     def _to_picklefile(self, outprefix, verbose=False):
         """
