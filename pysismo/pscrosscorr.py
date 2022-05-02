@@ -218,7 +218,7 @@ class CrossCorrelation:
         """
         # shallow copy
         result = copy.copy(self)
-        # copy of month cross-correlations
+        # copy of cross-correlations over control period
         result.controlxcs = [copy.copy(mxc) for mxc in self.controlxcs]
         return result
 
@@ -1673,11 +1673,34 @@ class CrossCorrelationCollection(AttribDict):
         if verbose:
             print
 
-    def plot(self, plot_type='distance', xlim=None, norm=True, whiten=False,
+    def plot(self, plot_type='distance', xlim=None, norm=1, whiten=False,
              sym=False, minSNR=None, minslice=1, withnets=None, onlywithnets=None,
-             figsize=(21.0, 12.0), outfile=None, dpi=300, showplot=True):
+             annotate=True, figsize=(21.0, 12.0), outfile=None, 
+             dpi=300, showplot=True):
         """
-        method to plot a collection of cross-correlations
+        method to plot a collection of cross-correlations !!
+
+        @param plot_type: choose between classic and distance plot
+        @type plot_type: str
+        @param xlim: set x axis limits
+        @type xlim: list of (float, float)
+        @param norm: 0 or False: no normalization. 1 or True, normalization by max of abs values \
+                     or normalization by max abs value multiplied by norm             
+        @type norm: bool or float
+        @type whiten: bool
+        @param sym: toggle symmetrisation of stack
+        @type sym: bool
+        @type minSNR: bool or float
+        @type minslice: int
+        @param withnets: only include pairs if one station is from the specified network
+        @type withnets: str
+        @param onlywithnets: only include pairs if both stations are from the specified network
+        @type onlywithnets: str
+        @type annotate: bool
+        @type figsize: list of (float, float)
+        @type outfile: bool
+        @type dpi: int
+        @type showplot: bool
         """
 
         # preparing pairs
@@ -1715,7 +1738,7 @@ class CrossCorrelationCollection(AttribDict):
                 plt.subplot(nrow, ncol, iplot + 1)
 
                 # normalizing factor
-                nrm = max(abs(xcplot.dataarray)) if norm else 1.0
+                nrm = max(abs(xcplot.dataarray)) * norm if norm else 1.0
 
                 # plotting
                 plt.plot(xcplot.timearray, xcplot.dataarray / nrm, 'r')
@@ -1750,58 +1773,71 @@ class CrossCorrelationCollection(AttribDict):
                 # spectral whitening
                 if whiten:
                     xcplot = xcplot.whiten(inplace=False)
-
-                # color
-                color = cc.by_key()['color'][ipair % len(cc)]
-
+                
                 # normalizing factor
-                nrm = max(abs(xcplot.dataarray)) if norm else 1.0
+                nrm = max(abs(xcplot.dataarray)) * norm if norm else 1.0
 
-                # plotting
-                xarray = xcplot.timearray
-                yarray = xcplot.dist() + corr2km * xcplot.dataarray / nrm
-                plt.plot(xarray, yarray, color=color)
-                if xlim:
-                    plt.xlim(xlim)
+                
+                if annotate:              
+                    color = cc.by_key()['color'][ipair % len(cc)]
+                    
+                    # plotting
+                    xarray = xcplot.timearray
+                    yarray = xcplot.dist() + corr2km * xcplot.dataarray / nrm
+                    plt.plot(xarray, yarray, color=color)
+                    if xlim:
+                        plt.xlim(xlim)
 
-                # adding annotation @ xytest, annotation line @ xyarrow
-                xmin, xmax = plt.xlim()
-                xextent = plt.xlim()[1] - plt.xlim()[0]
-                ymin = -0.1 * maxdist
-                ymax = 1.1 * maxdist
-                if npair <= 40:
-                    # all annotations on the right side
-                    x = xmax - xextent / 10.0
-                    y = maxdist if npair == 1 else ymin + ipair*(ymax-ymin)/(npair-1)
-                    xytext = (x, y)
-                    xyarrow = (x - xextent / 30.0, xcplot.dist())
-                    align = 'left'
-                    relpos = (0, 0.5)
+                    # adding annotation @ xytest, annotation line @ xyarrow
+                    xmin, xmax = plt.xlim()
+                    xextent = plt.xlim()[1] - plt.xlim()[0]
+                    ymin = -0.1 * maxdist
+                    ymax = 1.1 * maxdist
+                    if npair <= 40:
+                        # all annotations on the right side
+                        x = xmax - xextent / 10.0
+                        y = maxdist if npair == 1 else ymin + ipair*(ymax-ymin)/(npair-1)
+                        xytext = (x, y)
+                        xyarrow = (x - xextent / 30.0, xcplot.dist())
+                        align = 'left'
+                        relpos = (0, 0.5)
+                    else:
+                        # alternating right/left
+                        sign = 2 * (ipair % 2 - 0.5)
+                        x = xmin + xextent / 10.0 if sign > 0 else xmax - xextent / 10.0
+                        y = ymin + ipair / 2 * (ymax - ymin) / (npair / 2 - 1.0)
+                        xytext = (x, y)
+                        xyarrow = (x + sign * xextent / 30.0, xcplot.dist())
+                        align = 'right' if sign > 0 else 'left'
+                        relpos = (1, 0.5) if sign > 0 else (0, 0.5)
+                    net1 = xcplot.station1.network
+                    net2 = xcplot.station2.network
+                    locs1 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs1]))
+                    locs2 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs2]))
+                    s = '{net1}.{s1}[{locs1}]-{net2}.{s2}[{locs2}]: {nslice} timeslices {t1}-{t2}'
+                    s = s.format(net1=net1, s1=s1, locs1=locs1, net2=net2, s2=s2,
+                                 locs2=locs2, nslice=xcplot.nslice,
+                                 t1=xcplot.starttime.strftime('%d/%m/%y'),
+                                 t2=xcplot.endtime.strftime('%d/%m/%y'))
+
+                    bbox = {'color': color, 'alpha': 0.9}
+                    arrowprops = {'arrowstyle': "-", 'relpos': relpos, 'color': color}
+                    
+                    plt.annotate(s=s, xy=xyarrow, xytext=xytext, fontsize=9,
+                                     color='k', horizontalalignment=align,
+                                     bbox=bbox, arrowprops=arrowprops)
+                                     
+                
                 else:
-                    # alternating right/left
-                    sign = 2 * (ipair % 2 - 0.5)
-                    x = xmin + xextent / 10.0 if sign > 0 else xmax - xextent / 10.0
-                    y = ymin + ipair / 2 * (ymax - ymin) / (npair / 2 - 1.0)
-                    xytext = (x, y)
-                    xyarrow = (x + sign * xextent / 30.0, xcplot.dist())
-                    align = 'right' if sign > 0 else 'left'
-                    relpos = (1, 0.5) if sign > 0 else (0, 0.5)
-                net1 = xcplot.station1.network
-                net2 = xcplot.station2.network
-                locs1 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs1]))
-                locs2 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs2]))
-                s = '{net1}.{s1}[{locs1}]-{net2}.{s2}[{locs2}]: {nslice} timeslices {t1}-{t2}'
-                s = s.format(net1=net1, s1=s1, locs1=locs1, net2=net2, s2=s2,
-                             locs2=locs2, nslice=xcplot.nslice,
-                             t1=xcplot.starttime.strftime('%d/%m/%y'),
-                             t2=xcplot.endtime.strftime('%d/%m/%y'))
-
-                bbox = {'color': color, 'alpha': 0.9}
-                arrowprops = {'arrowstyle': "-", 'relpos': relpos, 'color': color}
-
-                plt.annotate(s=s, xy=xyarrow, xytext=xytext, fontsize=9,
-                             color='k', horizontalalignment=align,
-                             bbox=bbox, arrowprops=arrowprops)
+                    color = 'grey'
+                    
+                    # plotting
+                    xarray = xcplot.timearray
+                    yarray = xcplot.dist() + corr2km * xcplot.dataarray / nrm
+                    plt.fill_between(xarray, np.mean(yarray), yarray, color=color)
+                    plt.plot(xarray, yarray, color=color)
+                    if xlim:
+                        plt.xlim(xlim)
 
             plt.grid()
             plt.xlabel('Time (s)')
