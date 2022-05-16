@@ -214,7 +214,7 @@ FTAN_VELOCITIES_STARTSTOPSTEP = [1.5, 4.5, 0.02]
 #  exp[-FTAN_ALPHA * ((f-f0)/f0)**2],
 #
 # where f is the frequency and f0 the center frequency of the filter.
-
+#10
 FTAN_ALPHA = 20
 
 # relative strength of the smoothing term in the penalty function that
@@ -257,7 +257,7 @@ MINSPECTSNR_NOSDEV = 15
 MAXSDEV = 0.1
 # MINNBCONTROLPERIODS = 4
 MINNBCONTROLPERIODS = 4
-MAXPERIOD_FACTOR = 0.33333 
+MAXPERIOD_FACTOR = 0.11111 
 
 # Default internode spacing of grid
 

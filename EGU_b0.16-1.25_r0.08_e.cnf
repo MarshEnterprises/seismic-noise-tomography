@@ -214,12 +214,13 @@ FTAN_VELOCITIES_STARTSTOPSTEP = [1.5, 4.5, 0.015]
 #  exp[-FTAN_ALPHA * ((f-f0)/f0)**2],
 #
 # where f is the frequency and f0 the center frequency of the filter.
-
-FTAN_ALPHA = 20
+#20
+FTAN_ALPHA = 4 
 
 # relative strength of the smoothing term in the penalty function that
 # the dispersion curve seeks to minimize
-STRENGTH_SMOOTHING = 1.0
+#1.0
+STRENGTH_SMOOTHING = 1
 
 # replace nominal frequency (i.e., center frequency of Gaussian filters)
 # with instantaneous frequency (i.e., dphi/dt(t=arrival time) with phi the
@@ -258,7 +259,7 @@ MINSPECTSNR_NOSDEV = 15
 MAXSDEV = 0.1
 # MINNBCONTROLPERIODS = 4
 MINNBCONTROLPERIODS = 4
-MAXPERIOD_FACTOR = 0.33333 
+MAXPERIOD_FACTOR = 0.11111 
 
 # Default internode spacing of grid
 
