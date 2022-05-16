@@ -32,6 +32,9 @@ import matplotlib as mpl
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import gridspec
 
+from matplotlib.colors import ColorConverter
+from matplotlib.colors import LinearSegmentedColormap
+
 plt.ioff()  # turning off interactive mode
 
 # ====================================================
@@ -53,6 +56,29 @@ from psconfig import (
 
 EPS = 1.0e-5
 ONESEC = dt.timedelta(seconds=1)
+
+# custom color map for seismic anomalies
+# --------------------------------------
+c = ColorConverter()
+#colors = ['black', 'red', 'gold', 'white',
+#          'white', 'aquamarine', 'blue', 'magenta']
+
+#values = [-1.0, -0.35, -0.1, -0.025,
+#          0.025, 0.1, 0.95, 1.0]
+          
+colors = ['darkblue', 'blue', 'lightblue', 'aquamarine',
+          'green', 'yellow', 'red', 'darkred']
+values = [-1, 0, 0.55, 0.6,
+          0.7, 0.8, 0.95, 1.0]
+rgblist = [c.to_rgb(s) for s in colors]
+reds, greens, blues = zip(*rgblist)
+cdict = {}
+for x, r, g, b in zip(values, reds, greens, blues):
+    v = (x - min(values)) / (max(values) - min(values))
+    cdict.setdefault('red', []).append((v, r, r))
+    cdict.setdefault('green', []).append((v, g, g))
+    cdict.setdefault('blue', []).append((v, b, b))
+CMAP_SEISMIC = LinearSegmentedColormap('customseismic', cdict)
 
 
 class MonthYear:
@@ -1267,7 +1293,7 @@ class CrossCorrelation:
         extent = (min(RAWFTAN_PERIODS), max(RAWFTAN_PERIODS),
                   min(FTAN_VELOCITIES), max(FTAN_VELOCITIES))
         m = np.log10(rawampl.transpose() ** 2) if logscale else rawampl.transpose()
-        ax.imshow(m, aspect='auto', origin='lower', extent=extent)
+        ax.imshow(m, aspect='auto', origin='lower', extent=extent, cmap=CMAP_SEISMIC) 
 
         # Period is instantaneous iif a list of (nominal period, inst period)
         # is associated with dispersion curve
@@ -1309,7 +1335,7 @@ class CrossCorrelation:
         extent = (min(CLEANFTAN_PERIODS), max(CLEANFTAN_PERIODS),
                   min(FTAN_VELOCITIES), max(FTAN_VELOCITIES))
         m = np.log10(cleanampl.transpose() ** 2) if logscale else cleanampl.transpose()
-        ax.imshow(m, aspect='auto', origin='lower', extent=extent)
+        ax.imshow(m, aspect='auto', origin='lower', extent=extent, cmap=CMAP_SEISMIC) 
         # Period is instantaneous iif a list of (nominal period, inst period)
         # is associated with dispersion curve
         periodlabel = 'Instantaneous period (sec)' if cleanvg.nom2inst_periods \
