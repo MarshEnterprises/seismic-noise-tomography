@@ -16,3 +16,5 @@ test_elipsoid.py
 /backup/
 /output/
 *.yml
+gitignore
+old_config
