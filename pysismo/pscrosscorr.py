@@ -25,7 +25,7 @@ import pickle
 import copy
 from collections import OrderedDict
 import datetime as dt
-from calendar import monthrange
+import math
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -1699,190 +1699,50 @@ class CrossCorrelationCollection(AttribDict):
         if verbose:
             print
 
-    def plot(self, plot_type='distance', xlim=None, norm=1, whiten=False,
-             sym=False, minSNR=None, minslice=1, withnets=None, onlywithnets=None,
-             annotate=True, figsize=(21.0, 12.0), outfile=None, 
-             dpi=300, showplot=True):
+    def plot(self, stripheight=None, outfile=None, showplot=True):
+
         """
-        method to plot a collection of cross-correlations !!
+                method to plot a collection of cross-correlations !!
 
-        @param plot_type: choose between classic and distance plot
-        @type plot_type: str
-        @param xlim: set x axis limits
-        @type xlim: list of (float, float)
-        @param norm: 0 or False: no normalization. 1 or True, normalization by max of abs values \
-                     or normalization by max abs value multiplied by norm             
-        @type norm: bool or float
-        @type whiten: bool
-        @param sym: toggle symmetrisation of stack
-        @type sym: bool
-        @type minSNR: bool or float
-        @type minslice: int
-        @param withnets: only include pairs if one station is from the specified network
-        @type withnets: str
-        @param onlywithnets: only include pairs if both stations are from the specified network
-        @type onlywithnets: str
-        @type annotate: bool
-        @type figsize: list of (float, float)
-        @type outfile: bool
-        @type dpi: int
-        @type showplot: bool
-        """
+                @param stripheight: set the strip height of cross correlation in km. If not set, stripheight is
+                                    automatically determined.
+                @type stripheight:  float
+                @param outfile:     If set, path to save plot to. File extension determines file format.
+                @type outfile:      str
+                @type showplot:     bool
+                """
 
-        # preparing pairs
-        pairs = self.pairs(minslice=minslice, minSNR=minSNR, withnets=withnets,
-                           onlywithnets=onlywithnets)
-        npair = len(pairs)
-        if not npair:
-            print "Nothing to plot!"
-            return
+        pairs = self.pairs()
+        maxdist = max(self[x][y].dist() for (x, y) in pairs)
+        mindist = min(self[x][y].dist() for (x, y) in pairs)
+        maxtime = max(max(self[x][y].timearray) for (x, y) in pairs)
+        mintime = min(min(self[x][y].timearray) for (x, y) in pairs)
+        corrlength = max(len(self[x][y].dataarray) for (x, y) in pairs)
 
-        plt.figure()
+        if not stripheight:
+            stripheight = (maxdist - mindist) / 300
 
-        # classic plot = one plot for each pair
-        if plot_type == 'classic':
-            nrow = int(np.sqrt(npair))
-            if np.sqrt(npair) != nrow:
-                nrow += 1
+        Y = np.zeros(shape=(int(math.ceil(maxdist / stripheight)) + 1, corrlength))
+        pairs.sort(key=lambda (s1, s2): self[s1][s2].dist())
 
-            ncol = int(npair / nrow)
-            if npair % nrow != 0:
-                ncol += 1
+        for ipairs, (s1, s2) in enumerate(pairs):
+            # data = psutils.bandpass_butterworth(data=xc[s1][s2].dataarray,dt=1.0,periodmin=8.0,periodmax=40.0)
+            data = self[s1][s2].dataarray / (max(abs(self[s1][s2].dataarray)))
+            ypos = int(round(self[s1][s2].dist() / stripheight))
+            Y[ypos] = data
 
-            # sorting pairs alphabetically
-            pairs.sort()
+        # plt.figure()
+        plt.imshow(Y, vmin=-1., vmax=1., cmap='seismic', aspect='auto', origin='lower',
+                   extent=(mintime, maxtime, 0, maxdist + stripheight))
+        plt.xlim(-40, 40)
+        plt.xlabel('Time (s)')
+        plt.ylabel('inter-station distance (km)')
 
-            for iplot, (s1, s2) in enumerate(pairs):
-                # symmetrizing cross-corr if necessary
-                xcplot = self[s1][s2].symmetrize(inplace=False) if sym else self[s1][s2]
-
-                # spectral whitening
-                if whiten:
-                    xcplot = xcplot.whiten(inplace=False)
-
-                # subplot
-                plt.subplot(nrow, ncol, iplot + 1)
-
-                # normalizing factor
-                nrm = max(abs(xcplot.dataarray)) * norm if norm else 1.0
-
-                # plotting
-                plt.plot(xcplot.timearray, xcplot.dataarray / nrm, 'r')
-                if xlim:
-                    plt.xlim(xlim)
-
-                # title
-                locs1 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs1]))
-                locs2 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs2]))
-                s = '{s1}[{locs1}]-{s2}[{locs2}]: {nslice} timeslices from {t1} to {t2}'
-                title = s.format(s1=s1, locs1=locs1, s2=s2, locs2=locs2,
-                                 nslice=xcplot.nslice, t1=xcplot.starttime,
-                                 t2=xcplot.endtime)
-                plt.title(title)
-
-                # x-axis label
-                if iplot + 1 == npair:
-                    plt.xlabel('Time (s)')
-
-        # distance plot = one plot for all pairs, y-shifted according to pair distance
-        elif plot_type == 'distance':
-            maxdist = max(self[x][y].dist() for (x, y) in pairs)
-            corr2km = maxdist / 30.0
-            cc = mpl.rcParams['axes.prop_cycle']  # color cycle
-
-            # sorting pairs by distance
-            pairs.sort(key=lambda (s1, s2): self[s1][s2].dist())
-            for ipair, (s1, s2) in enumerate(pairs):
-                # symmetrizing cross-corr if necessary
-                xcplot = self[s1][s2].symmetrize(inplace=False) if sym else self[s1][s2]
-
-                # spectral whitening
-                if whiten:
-                    xcplot = xcplot.whiten(inplace=False)
-                
-                # normalizing factor
-                nrm = max(abs(xcplot.dataarray)) * norm if norm else 1.0
-
-                
-                if annotate:              
-                    color = cc.by_key()['color'][ipair % len(cc)]
-                    
-                    # plotting
-                    xarray = xcplot.timearray
-                    yarray = xcplot.dist() + corr2km * xcplot.dataarray / nrm
-                    plt.plot(xarray, yarray, color=color)
-                    if xlim:
-                        plt.xlim(xlim)
-
-                    # adding annotation @ xytest, annotation line @ xyarrow
-                    xmin, xmax = plt.xlim()
-                    xextent = plt.xlim()[1] - plt.xlim()[0]
-                    ymin = -0.1 * maxdist
-                    ymax = 1.1 * maxdist
-                    if npair <= 40:
-                        # all annotations on the right side
-                        x = xmax - xextent / 10.0
-                        y = maxdist if npair == 1 else ymin + ipair*(ymax-ymin)/(npair-1)
-                        xytext = (x, y)
-                        xyarrow = (x - xextent / 30.0, xcplot.dist())
-                        align = 'left'
-                        relpos = (0, 0.5)
-                    else:
-                        # alternating right/left
-                        sign = 2 * (ipair % 2 - 0.5)
-                        x = xmin + xextent / 10.0 if sign > 0 else xmax - xextent / 10.0
-                        y = ymin + ipair / 2 * (ymax - ymin) / (npair / 2 - 1.0)
-                        xytext = (x, y)
-                        xyarrow = (x + sign * xextent / 30.0, xcplot.dist())
-                        align = 'right' if sign > 0 else 'left'
-                        relpos = (1, 0.5) if sign > 0 else (0, 0.5)
-                    net1 = xcplot.station1.network
-                    net2 = xcplot.station2.network
-                    locs1 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs1]))
-                    locs2 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs2]))
-                    s = '{net1}.{s1}[{locs1}]-{net2}.{s2}[{locs2}]: {nslice} timeslices {t1}-{t2}'
-                    s = s.format(net1=net1, s1=s1, locs1=locs1, net2=net2, s2=s2,
-                                 locs2=locs2, nslice=xcplot.nslice,
-                                 t1=xcplot.starttime.strftime('%d/%m/%y'),
-                                 t2=xcplot.endtime.strftime('%d/%m/%y'))
-
-                    bbox = {'color': color, 'alpha': 0.9}
-                    arrowprops = {'arrowstyle': "-", 'relpos': relpos, 'color': color}
-                    
-                    plt.annotate(s=s, xy=xyarrow, xytext=xytext, fontsize=9,
-                                     color='k', horizontalalignment=align,
-                                     bbox=bbox, arrowprops=arrowprops)
-                                     
-                
-                else:
-                    color = 'grey'
-                    
-                    # plotting
-                    xarray = xcplot.timearray
-                    yarray = xcplot.dist() + corr2km * xcplot.dataarray / nrm
-                    plt.fill_between(xarray, np.mean(yarray), yarray, color=color)
-                    plt.plot(xarray, yarray, color=color)
-                    if xlim:
-                        plt.xlim(xlim)
-
-            plt.grid()
-            plt.xlabel('Time (s)')
-            plt.ylabel('Distance (km)')
-            plt.ylim((0, plt.ylim()[1]))
-
-        # saving figure
         if outfile:
-            if os.path.exists(outfile):
-                # backup
-                shutil.copyfile(outfile, outfile + '~')
-            fig = plt.gcf()
-            fig.set_size_inches(figsize)
-            fig.savefig(outfile, dpi=dpi)
+            plt.savefig(outfile)
 
         if showplot:
             plt.show()
-        else:
-            plt.close()
 
     def plot_spectral_SNR(self, whiten=False, minSNR=None, minspectSNR=None,
                           minslice=1, mindist=None, withnets=None, onlywithnets=None,
