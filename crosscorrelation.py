@@ -112,7 +112,7 @@ MULTIPROCESSING = {'merge trace': False,
                    'process trace': True,
                    'cross-corr': True}
 # how many concurrent processes? (set None to let multiprocessing module decide)
-NB_PROCESSES = None
+NB_PROCESSES = None #!!
 if any(MULTIPROCESSING.values()):
     import multiprocessing as mp
     mp.freeze_support()  # for Windows...
@@ -396,7 +396,7 @@ for slicetime in slicetimes:
         # them to xc.add() (which won't have to recalculate them)
         print "Pre-calculating cross-correlation arrays"
 
-        def xcorr_func(pair):
+        def xcorr_func(pair): #!! add min / max distance parameters
             """
             Preparing func that returns cross-correlation array
             beween two traces

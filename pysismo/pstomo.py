@@ -34,7 +34,7 @@ from psconfig import (
 # Constants and parameters
 # ========================
 
-EPS = 1.0E-6
+EPS = 1.0E-6 #!! not sure what this is. Maybe residual
 
 # custom color map for seismic anomalies
 # --------------------------------------

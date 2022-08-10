@@ -77,21 +77,25 @@ import glob
 import pickle
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+import numpy as np #!! added by ben
 
 # periods
-# PERIODS = [0.15, 0.3, 0.6]
-PERIODS = [1, 1.5, 2, 3, 4, 5]
+# PERIODS = [2] #np.linspace(0.1, 1, 181) # for f0.1-1 #[0.15, 0.3, 0.6, 1]
+PERIODS = [1, 1.5, 2, 3, 4]
 # PERIODS = [6.0, 10.0, 16.0, 20.0, 23.0]
 # PERIODS = range(10, 31)
+PADDING = [0.1]
 
 # parameters for the 1st and 2nd pass, respectively
-GRID_STEPS = (1.0, 1.0)
-PADDING = [0.1]
+GRID_STEPS = (0.025, 0.01)
 MINPECTSNRS = (7.0, 7.0)
-CORR_LENGTHS = (1, 1)
-ALPHAS = (25, 2.5)
-BETAS = (1, 1)
+CORR_LENGTHS = (5, 1.5)
+ALPHAS = [1000, 200] #(1500, 400)
+BETAS = (50, 25)
 LAMBDAS = (0.3, 0.3)
+# ALPHAS = (30, 30)
+# BETAS = (50, 50)
+# LAMBDAS = (0.075, 0.075)
 
 # stations to skip (if any)
 SKIP_STATIONS = []

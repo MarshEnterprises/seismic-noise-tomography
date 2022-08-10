@@ -67,17 +67,47 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import itertools as it
 
-# inversion parameters to vary
-# PERIODS = [0.15, 0.3, 0.6]
+# # inversion parameters to vary
+# # PERIODS = [0.15, 0.3, 0.6, 0.9]
 # PERIODS = [1, 1.5, 2, 3, 4, 5]
-PERIODS = [1, 1.5, 2, 3, 4, 5, 7, 10, 14]
-GRID_STEPS = [0.025]
+# PERIODS = [1.5, 2, 3, 4, 5, 7, 10, 14]
+# GRID_STEPS = [0.025]
+# PADDING = [0.1]
+# MINPECTSNRS = [10]
+# CORR_LENGTHS = [50]
+# ALPHAS = [200]
+# BETAS = [50]
+# LAMBDAS = [0.3]
+
+# inversion parameters to vary
+# PERIODS = [0.15, 0.3, 0.6, 1]
+# PERIODS = [1, 1.5, 2, 3, 4, 5]
+# PERIODS = [1.5, 2, 3, 4, 5]
+# PERIODS = [2]
+# PERIODS = [0.15, 0.3, 0.6, 0.9, 1, 1.5, 2, 3, 4, 5]
+PERIODS = [1.5] #[1, 1.5, 2, 3, 4]
+GRID_STEPS = [0.05]
 PADDING = [0.1]
 MINPECTSNRS = [7]
-CORR_LENGTHS = [1]
-ALPHAS = [30]
-BETAS = [50]
-LAMBDAS = [0.075]
+CORR_LENGTHS = [15]
+ALPHAS = [40]
+BETAS = [100, 50, 5]
+LAMBDAS = [0.15]
+
+# # inversion parameters to vary
+# # PERIODS = [0.15, 0.3, 0.6, 0.9]
+# # PERIODS = [1, 1.5, 2, 3, 4, 5]
+# PERIODS = [1, 1.5, 2, 3, 4, 5, 7, 10, 14]
+# # PERIODS = [2]
+# # PERIODS = [0.15, 0.3, 0.6, 0.9, 1, 1.5, 2, 3, 4, 5]
+# # PERIODS = [1.5, 2, 3, 4, 5, 7, 10, 14]
+# GRID_STEPS = [0.025]
+# PADDING = [0.1]
+# MINPECTSNRS = [7]
+# CORR_LENGTHS = [1, 10, 100]
+# ALPHAS = [1, 10, 100]
+# BETAS = [1, 10, 100]
+# LAMBDAS = [0.003]
 
 # parsing configuration file to import dirs
 from pysismo.psconfig import FTAN_DIR, TOMO_DIR
