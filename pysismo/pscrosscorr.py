@@ -2387,9 +2387,12 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
     # Removing instrument response, mean and trend
     # ============================================
 
+    # resample
+    trace.interpolate(1/period_resample, method='linear')
+
     # demean and detrend before preprocessing - quick patch, may need revision !!
-    # trace.detrend(type='constant')
-    # trace.detrend(type='linear')
+    trace.detrend(type='constant')
+    trace.detrend(type='linear')
 
     # removing response...
     if paz:
@@ -2405,22 +2408,9 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
                        nfft_pow2=True)
     else:
         # ...using StationXML:
-        # first band-pass to downsample data before removing response
-        # (else remove_response() method is slow or even hangs)
-        # trace.filter(type="bandpass",
-        #              freqmin=freqmin,
-        #              freqmax=freqmax,
-        #              corners=corners,
-        #              zerophase=zerophase)
-        #psutils.resample(trace, dt_resample=period_resample)
-        # trace.detrend(type='constant')
-        # trace.detrend(type='linear')
         trace.remove_response(output="VEL", zero_mean=True)
-        psutils.resample(trace, dt_resample=period_resample)
-        # trace.remove_response(output="VEL", zero_mean=True)
 
     # demeaning, detrending
-    #trace.detrend(type='spline', order=3, dspline= 2 * period_resample / freqmin)
     trace.detrend(type='constant')
     trace.detrend(type='linear')
 
@@ -2441,10 +2431,6 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
                  corners=corners,
                  zerophase=zerophase)
 
-    # downsampling trace if not already done
-    if abs(1.0 / trace.stats.sampling_rate - period_resample) > EPS:
-        psutils.resample(trace, dt_resample=period_resample)
-
     # ==================
     # Time normalization
     # ==================
@@ -2459,8 +2445,6 @@ def preprocess_trace(trace, paz=None, freqmin=FREQMIN, freqmax=FREQMAX,
                       freqmax=freqmax_earthquake,
                       corners=corners,
                       zerophase=zerophase)
-        # decimating trace
-        psutils.resample(trcopy, period_resample)
 
         # Time-normalization weights from smoothed abs(data)
         # Note that trace's data can be a masked array

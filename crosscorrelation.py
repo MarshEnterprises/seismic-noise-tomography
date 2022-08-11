@@ -437,8 +437,7 @@ else:
     print "Exporting cross-correlations to file: {}.png".format(OUTFILESPATH)
     # optimizing time-scale: max time = max distance / vmin (vmin = 2.5 km/s)
     maxdist = max([xc[s1][s2].dist() for s1, s2 in xc.pairs()])
-    maxt = min(CROSSCORR_SHIFT, maxdist / 2.5)
-    xc.plot(xlim=(-maxt, maxt), outfile=OUTFILESPATH + '.png', showplot=False)
+    xc.plot(outfile=OUTFILESPATH + '.png', showplot=False)
 
 # removing file containing periodical exports of cross-corrs
 try:
