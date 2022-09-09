@@ -199,8 +199,8 @@ PERIOD_BANDS = [[1, 3], [3, 6], [6, 10]]
 
 SIGNAL_WINDOW_VMIN = 1.5
 SIGNAL_WINDOW_VMAX = 4.5
-SIGNAL2NOISE_TRAIL = 20
-NOISE_WINDOW_SIZE = 10
+SIGNAL2NOISE_TRAIL = 40
+NOISE_WINDOW_SIZE = 20
 
 # periods and velocities of the FTAN: start, stop and step (JSON lists)
 

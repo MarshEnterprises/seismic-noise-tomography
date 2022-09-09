@@ -511,8 +511,9 @@ class CrossCorrelation:
         # returning 1d array if spectral SNR, 0d array if normal SNR
         return np.array(SNR) if len(SNR) > 1 else np.array(SNR[0])
 
-    def plot(self, whiten=False, sym=False, vmin=SIGNAL_WINDOW_VMIN,
-             vmax=SIGNAL_WINDOW_VMAX, control_periods=None):
+    def plot(self, whiten=False, sym=False, signal_window_position='both', vmin=SIGNAL_WINDOW_VMIN,
+             vmax=SIGNAL_WINDOW_VMAX, control_periods=None, xlim_xcorr=None, 
+             xlim_spectrum=None, figsize=None):
         """
         Plots cross-correlation and its spectrum
         """
@@ -524,31 +525,44 @@ class CrossCorrelation:
         xcdata = xcout._get_controlperiod_xcdataarray(control_periods=control_periods)
 
         # cross-correlation plot ===
-        plt.figure()
+        plt.figure(figsize=figsize)
         plt.subplot(2, 1, 1)
         plt.plot(xcout.timearray, xcdata)
         plt.xlabel('Time (s)')
         plt.ylabel('Cross-correlation')
-        plt.grid()
 
         # vmin, vmax
-        vkwargs = {
-            'fontsize': 8,
-            'horizontalalignment': 'center',
-            'bbox': {'edgecolor': 'black', 'facecolor': 'white', 'alpha': 0.5}}
-        if vmin:
+        def signal_window(vmin, vmax):
+            vkwargs = {
+                'fontsize': 8,
+                'horizontalalignment': 'center',
+                'verticalalignment': 'bottom',
+                'bbox': {'edgecolor': 'black', 'facecolor': 'white', 'alpha': 0.5}}
             ylim = plt.ylim()
-            plt.plot(2 * [xcout.dist() / vmin], ylim, color='grey')
-            xy = (xcout.dist() / vmin, plt.ylim()[0])
-            plt.annotate('{0} km/s'.format(vmin), xy=xy, xytext=xy, **vkwargs)
+            
+            if vmin and vmax:
+                plt.plot(2 * [xcout.dist() / vmin], ylim, color='grey')
+                xy = (xcout.dist() / vmin, ylim[0])
+                plt.annotate('{0} km/s'.format(vmin), xy=xy, xytext=xy, **vkwargs)
+
+                plt.plot(2 * [xcout.dist() / vmax], ylim, color='grey')
+                xy = (xcout.dist() / vmax, ylim[0])
+                plt.annotate('{0} km/s'.format(vmax), xy=xy, xytext=xy, **vkwargs)
+                
+                plt.fill_between((xcout.dist() / vmin, xcout.dist() / vmax), ylim[0], ylim[1], color='lightgray')
+            
             plt.ylim(ylim)
 
-        if vmax:
-            ylim = plt.ylim()
-            plt.plot(2 * [xcout.dist() / vmax], ylim, color='grey')
-            xy = (xcout.dist() / vmax, plt.ylim()[0])
-            plt.annotate('{0} km/s'.format(vmax), xy=xy, xytext=xy, **vkwargs)
-            plt.ylim(ylim)
+        if signal_window_position == 'both':
+            signal_window(vmin, vmax)
+            signal_window(-vmin, -vmax)
+        elif signal_window_position == 'right':
+            signal_window(vmin, vmax)
+        elif signal_window_position == 'left':
+            signal_window(-vmin, -vmax)
+            
+        plt.xlim(xlim_xcorr)
+        plt.grid()
 
         # title
         plt.title(xcout._plottitle(control_period=control_periods))
@@ -566,8 +580,12 @@ class CrossCorrelation:
         freqarray = np.arange(nfreq) * sampling_rate / npts
         amplarray = np.abs(rfft(xcdata))
         plt.plot(freqarray, amplarray)
-        plt.xlim((0.0, 10))
-
+        
+        if xlim_spectrum:
+            plt.xlim(xlim_spectrum)
+        else:
+            plt.xlim((min(freqarray), max(freqarray)))
+        plt.tight_layout()
         plt.show()
 
     def plot_by_period_band(self, axlist=None, bands=PERIOD_BANDS,
